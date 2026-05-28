@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./assets/nullsec-s1-banner.png" alt="Nullsec S1" width="100%" />
+</p>
+
 # Nullsec S1
 
 **Security-native LLM system for the AI-generated software era.**
