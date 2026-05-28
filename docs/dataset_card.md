@@ -67,11 +67,11 @@ The corpus is gated by three real commands:
 
 - `python training/validate_corpus.py` — rejects incomplete examples, findings without a real secure patch, `checks_performed` that contradict findings (a finding whose dimension is marked `pass`), verdicts that cannot be aligned, and any example whose labeled `production_ready` disagrees with the Safety Layer. Also enforces per-category minimum coverage. Runs in CI.
 - `python training/dataset_stats.py` — reports total, train/eval split, category coverage (curated and total), severity coverage, language/framework coverage, the `production_ready` true/false ratio, the Safety Layer consistency rate, and the provenance breakdown.
-- `python training/release_threshold.py` — blocks a Nullsec-1.0 training run unless at least 500 **curated** examples exist, every taxonomy category has at least 25 curated examples, the eval split has at least 100 examples, and Safety Layer consistency is exactly 100%. Synthetic variants never count toward the curated thresholds. This gate currently blocks (50/500 curated) by design — it is the data-side analogue of `scripts/validate_claims.py` and unblocks only when the curated corpus is genuinely large enough.
+- `python training/release_threshold.py` — blocks a Nullsec-1.0 training run unless at least 500 **curated** examples exist, every taxonomy category has at least 25 curated examples, the eval split has at least 100 examples, and Safety Layer consistency is exactly 100%. Synthetic variants never count toward the curated thresholds. This gate **currently PASSES** (500 curated, every category ≥ 30, 100 eval, 100% consistency); it is the data-side analogue of `scripts/validate_claims.py` and was not weakened to pass. A passing threshold means the corpus is *training-ready* — it does **not** mean a model has been trained.
 
 ## Known biases & gaps
-- The curated set is small (50). It covers every category but with low depth (3 vulnerable examples each); recall on real-world variety is limited until scaled to the threshold.
-- Reaching 500 curated requires real CVE/scanner ingestion plus real AI-generated failure cases and continued authoring — not synthetic padding.
+- The curated set is an early corpus (500 curated: 63 hand-authored + 437 curated-ingested). It covers every category with ≥ 30 examples each, but per-category depth (~30) means recall on real-world variety grows with further scaling.
+- Further scaling relies on real CVE/scanner ingestion plus real AI-generated failure cases and continued authoring — not synthetic padding.
 - Scanner/CVE imports inherit the upstream tool's biases and false-positive profile.
 - Languages over-represented: Python, JS/TS, Solidity. Expand for Go/Rust/Java/PHP coverage.
 

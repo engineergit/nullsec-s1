@@ -49,7 +49,7 @@ The schema is the contract between the learned and deterministic halves of the s
 
 ## 4. Security taxonomy
 
-`taxonomy/taxonomy.json` is the single source of truth: 15 vulnerability categories, each mapped to one of 8 check dimensions, with default severity, CWE references, and detection signals. The categories target the failure modes of AI-generated software — exposed secrets, broken/missing auth, missing rate limits, unsafe admin routes, SQL injection, XSS, SSRF, command injection, unsafe file upload, prompt injection, MCP tool abuse, dangerous shell commands, wallet/transaction risk, smart-contract risk, and dependency/supply-chain risk. Every other component imports the taxonomy rather than redefining categories.
+`taxonomy/taxonomy.json` is the single source of truth: 16 vulnerability categories, each mapped to one of 8 check dimensions, with default severity, CWE references, and detection signals. The categories target the failure modes of AI-generated software — exposed secrets, broken/missing auth, missing rate limits, unsafe admin routes, SQL injection, XSS, SSRF, command injection, unsafe file upload, prompt injection, MCP tool abuse, dangerous shell commands, wallet/transaction risk, smart-contract risk, dependency/supply-chain risk, and environment/configuration exposure. Every other component imports the taxonomy rather than redefining categories.
 
 ## 5. The Security Alignment Layer
 
