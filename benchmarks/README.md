@@ -28,10 +28,10 @@ A case with no available output is scored as a **real miss**, never as a synthet
 
 ```bash
 # everything at once -> benchmarks/reports/SUITE.json
-python benchmarks/run_all.py --mode model --adapter outputs/nullsec1-7b-qlora
+python benchmarks/run_all.py --mode model --adapter outputs/nullsec-s1-qlora
 
 # a single family
-python benchmarks/runners/run_false_safe_rate.py --mode model --adapter outputs/nullsec1-7b-qlora
+python benchmarks/runners/run_false_safe_rate.py --mode model --adapter outputs/nullsec-s1-qlora
 
 # against captured outputs, no GPU
 python benchmarks/run_all.py --mode replay --replay captured.jsonl

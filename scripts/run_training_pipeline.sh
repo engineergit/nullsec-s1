@@ -14,7 +14,7 @@
 #
 # Environment overrides:
 #   CONFIG       training config            (default: training/config.yaml)
-#   ADAPTER_OUT  adapter output directory   (default: outputs/nullsec1-7b-qlora)
+#   ADAPTER_OUT  adapter output directory   (default: outputs/nullsec-s1-qlora)
 #   DATASET      benchmark dataset filename (default: detection.json)
 #   MERGE        set to 1 to also merge the adapter into dense weights
 #   BASE_MODEL   base model for the merge step (default: Qwen/Qwen2.5-Coder-7B-Instruct)
@@ -28,7 +28,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 CONFIG="${CONFIG:-training/config.yaml}"
-ADAPTER_OUT="${ADAPTER_OUT:-outputs/nullsec1-7b-qlora}"
+ADAPTER_OUT="${ADAPTER_OUT:-outputs/nullsec-s1-qlora}"
 DATASET="${DATASET:-detection.json}"
 BASE_MODEL="${BASE_MODEL:-Qwen/Qwen2.5-Coder-7B-Instruct}"
 PY="${PYTHON:-python}"

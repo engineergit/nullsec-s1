@@ -7,7 +7,7 @@ artifacts. No bundle is committed with hand-written or placeholder numbers.
 Create one with:
 
 ```bash
-python scripts/release_candidate.py --adapter outputs/nullsec1-7b-qlora \
+python scripts/release_candidate.py --adapter outputs/nullsec-s1-qlora \
     --dataset benchmarks/datasets/detection.json
 ```
 

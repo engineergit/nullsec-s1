@@ -9,7 +9,7 @@ Keep the LoRA adapter separate and load it on top of the quantized base at runti
 
 ```bash
 export NULLSEC_BASE_MODEL=Qwen/Qwen2.5-Coder-7B-Instruct
-export NULLSEC_ADAPTER_PATH=outputs/nullsec1-7b-qlora
+export NULLSEC_ADAPTER_PATH=outputs/nullsec-s1-qlora
 export NULLSEC_4BIT=1
 nullsec1 serve --host 0.0.0.0 --port 8000
 # or: uvicorn serving.server:app --host 0.0.0.0 --port 8000
@@ -19,7 +19,7 @@ nullsec1 serve --host 0.0.0.0 --port 8000
 Merge once (`training/merge_adapter.py`), then serve the dense weights with no PEFT dependency. Best when the adapter is stable.
 
 ```bash
-export NULLSEC_BASE_MODEL=outputs/nullsec1-7b-merged
+export NULLSEC_BASE_MODEL=outputs/nullsec-s1-merged
 unset NULLSEC_ADAPTER_PATH
 nullsec1 serve --port 8000
 ```
@@ -41,7 +41,7 @@ nullsec1 serve --port 8000
 docker build -t nullsec1:latest .
 docker run --gpus all -p 8000:8000 \
   -e NULLSEC_ADAPTER_PATH=/adapter \
-  -v $(pwd)/outputs/nullsec1-7b-qlora:/adapter:ro \
+  -v $(pwd)/outputs/nullsec-s1-qlora:/adapter:ro \
   nullsec1:latest
 ```
 

@@ -314,7 +314,7 @@ The benchmark suite measures detection accuracy, false-safe rate, hallucination 
 
 ```bash
 # against the live model (GPU):
-python benchmarks/run_all.py --mode model --adapter outputs/nullsec1-7b-qlora
+python benchmarks/run_all.py --mode model --adapter outputs/nullsec-s1-qlora
 
 # against captured real outputs (no GPU); reports are marked replay-only:
 python benchmarks/run_all.py --mode replay --replay path/to/captured.jsonl
@@ -329,8 +329,8 @@ A case with no model output is recorded as a real miss, never a synthetic pass. 
 A release bundle is produced only when the model, its outputs, and the Safety Layer are all real:
 
 ```bash
-python scripts/release_candidate.py --adapter outputs/nullsec1-7b-qlora --dataset detection.json
-python scripts/validate_claims.py --adapter outputs/nullsec1-7b-qlora \
+python scripts/release_candidate.py --adapter outputs/nullsec-s1-qlora --dataset detection.json
+python scripts/validate_claims.py --adapter outputs/nullsec-s1-qlora \
     --report releases/nullsec-1.0/benchmark/SUITE.json --check
 ```
 

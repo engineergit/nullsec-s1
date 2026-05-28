@@ -32,7 +32,7 @@ lora:
     - down_proj
 
 training:
-  output_dir: "outputs/nullsec1-7b-qlora"
+  output_dir: "outputs/nullsec-s1-qlora"
   num_train_epochs: 3
   # Effective batch = per_device * grad_accum = 1 * 16 = 16. Fits 24GB.
   per_device_train_batch_size: 1

@@ -5,7 +5,7 @@ Turns a trained adapter into a real release bundle — and refuses to produce on
 unless the model, its outputs, and the Safety Layer are all real.
 
     python scripts/release_candidate.py \
-        --adapter outputs/nullsec1-7b-qlora \
+        --adapter outputs/nullsec-s1-qlora \
         --dataset benchmarks/datasets/detection.json
 
 Hard gates (each aborts the release):

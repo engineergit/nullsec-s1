@@ -10,6 +10,10 @@ before, start here.
 > CUDA-capable NVIDIA GPU with enough VRAM to hold a 4-bit base model plus LoRA
 > optimizer state.
 
+> **Using RunPod?** Follow the dedicated, copy-paste **[RunPod guide:
+> `RUNPOD.md`](RUNPOD.md)** — it covers GPU/storage selection, the web terminal,
+> and artifact packaging step by step. This file is the provider-agnostic version.
+
 ---
 
 ## 1. What a "GPU box" is
@@ -146,7 +150,7 @@ every few steps.
 Useful environment overrides for the pipeline script:
 
 ```bash
-ADAPTER_OUT=outputs/nullsec1-7b-qlora \
+ADAPTER_OUT=outputs/nullsec-s1-qlora \
 DATASET=detection.json \
 MERGE=1 \
 bash scripts/run_training_pipeline.sh
@@ -162,7 +166,7 @@ serving — optional.)
 After a successful run you will have:
 
 ```
-outputs/nullsec1-7b-qlora/
+outputs/nullsec-s1-qlora/
   adapter_config.json
   adapter_model.safetensors
   tokenizer.json / tokenizer_config.json / ...
@@ -172,7 +176,7 @@ Download this directory to your own machine (or push it to your model storage):
 
 ```bash
 # from your laptop:
-scp -r user@gpu-box:~/nullsec-s1/outputs/nullsec1-7b-qlora ./
+scp -r user@gpu-box:~/nullsec-s1/outputs/nullsec-s1-qlora ./
 ```
 
 If you ran the full pipeline, you will also have:
@@ -200,11 +204,11 @@ anymore.
 A complete run produces:
 
 - [ ] `data/processed/train.jsonl` and `eval.jsonl` (400 / 100 records)
-- [ ] `outputs/nullsec1-7b-qlora/adapter_config.json` + `adapter_model.safetensors`
+- [ ] `outputs/nullsec-s1-qlora/adapter_config.json` + `adapter_model.safetensors`
 - [ ] tokenizer files alongside the adapter
 - [ ] `benchmarks/reports/SUITE.json` with `run_mode: "model"` and non-empty results
 - [ ] `releases/nullsec-1.0/` with `safety_probes.json` showing `passed: true`
-- [ ] `python scripts/validate_claims.py --adapter outputs/nullsec1-7b-qlora --report releases/nullsec-1.0/benchmark/SUITE.json --check` passes
+- [ ] `python scripts/validate_claims.py --adapter outputs/nullsec-s1-qlora --report releases/nullsec-1.0/benchmark/SUITE.json --check` passes
 
 Only once those exist will the claim validator permit "trained" and
 "benchmarked" wording. Until then, the honest status remains *training-ready*.

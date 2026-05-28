@@ -8,8 +8,8 @@ with enough RAM/VRAM for the dense model (more than 24GB for 14B).
 Usage:
   python training/merge_adapter.py \
       --base Qwen/Qwen2.5-Coder-7B-Instruct \
-      --adapter outputs/nullsec1-7b-qlora \
-      --out outputs/nullsec1-7b-merged
+      --adapter outputs/nullsec-s1-qlora \
+      --out outputs/nullsec-s1-merged
 """
 from __future__ import annotations
 

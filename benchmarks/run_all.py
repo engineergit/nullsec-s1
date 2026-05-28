@@ -7,7 +7,7 @@ individual reports.
 
 Usage:
   # against the live model (GPU):
-  python benchmarks/run_all.py --mode model --adapter outputs/nullsec1-7b-qlora
+  python benchmarks/run_all.py --mode model --adapter outputs/nullsec-s1-qlora
 
   # against captured real outputs (no GPU):
   python benchmarks/run_all.py --mode replay --replay path/to/captured.jsonl

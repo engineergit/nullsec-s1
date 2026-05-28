@@ -6,7 +6,7 @@ Claims are permitted only when the artifacts that make them true exist on disk
 release bundle). Run with no arguments for a status table:
 
     python scripts/validate_claims.py
-    python scripts/validate_claims.py --adapter outputs/nullsec1-7b-qlora
+    python scripts/validate_claims.py --adapter outputs/nullsec-s1-qlora
 
 With --check, scan README.md and RELEASE_SUMMARY.md for phrases that assert a
 claim the artifacts do not yet support, and exit non-zero if any are found. This

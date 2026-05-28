@@ -46,7 +46,7 @@ What the config does on 24GB:
 - `max_seq_length: 2048`, gradient checkpointing on, `paged_adamw_8bit`, bf16.
 - **Completion-only loss:** `DataCollatorForCompletionOnlyLM` masks everything up to the Qwen assistant marker (`<|im_start|>assistant\n`), so the model learns to produce the verdict, not to echo the prompt.
 
-The adapter is saved to `outputs/nullsec1-7b-qlora/`.
+The adapter is saved to `outputs/nullsec-s1-qlora/`.
 
 ## 4. Hyperparameters worth tuning
 | Knob | Default | When to change |
@@ -68,6 +68,6 @@ Edit `training/config.yaml`, uncomment the override block at the bottom and merg
 
 ## 7. Evaluate the result
 ```bash
-python training/evaluate.py --mode model --adapter outputs/nullsec1-7b-qlora
+python training/evaluate.py --mode model --adapter outputs/nullsec-s1-qlora
 ```
 Compare detection F1, severity accuracy, and verdict accuracy against the baseline in the report. Track these across runs as you scale the dataset.

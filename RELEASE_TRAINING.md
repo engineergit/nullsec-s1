@@ -43,7 +43,7 @@ python training/train_qlora.py --config training/config.yaml
 
 Fine-tunes the base (Qwen2.5-Coder-7B-Instruct by default) with 4-bit NF4 QLoRA
 and completion-only loss. The adapter is written to the output dir in
-`config.yaml` (e.g. `outputs/nullsec1-7b-qlora/`), containing `adapter_config.json`
+`config.yaml` (e.g. `outputs/nullsec-s1-qlora/`), containing `adapter_config.json`
 and `adapter_model.safetensors`.
 
 ## 3. (Optional) Merge the adapter
@@ -51,8 +51,8 @@ and `adapter_model.safetensors`.
 ```bash
 python training/merge_adapter.py \
     --base Qwen/Qwen2.5-Coder-7B-Instruct \
-    --adapter outputs/nullsec1-7b-qlora \
-    --out outputs/nullsec1-7b-merged
+    --adapter outputs/nullsec-s1-qlora \
+    --out outputs/nullsec-s1-merged
 ```
 
 Use the merged model for high-throughput serving (vLLM/TGI). The Safety Layer
@@ -61,7 +61,7 @@ runs in front of either form.
 ## 4. Fingerprint
 
 ```bash
-NULLSEC_ADAPTER_PATH=outputs/nullsec1-7b-qlora python -m nullsec.core.version
+NULLSEC_ADAPTER_PATH=outputs/nullsec-s1-qlora python -m nullsec.core.version
 ```
 
 The fingerprint now folds in the trained `adapter_config.json`, so the release
@@ -70,7 +70,7 @@ identity reflects the actual weights.
 ## 5. Evaluate (real model)
 
 ```bash
-python benchmarks/run_all.py --mode model --adapter outputs/nullsec1-7b-qlora
+python benchmarks/run_all.py --mode model --adapter outputs/nullsec-s1-qlora
 ```
 
 Produces real numbers in `benchmarks/reports/SUITE.json`. Numbers come only from
@@ -81,7 +81,7 @@ pass.
 
 ```bash
 python scripts/release_candidate.py \
-    --adapter outputs/nullsec1-7b-qlora \
+    --adapter outputs/nullsec-s1-qlora \
     --dataset benchmarks/datasets/detection.json
 ```
 
@@ -97,7 +97,7 @@ Safety Layer probe is bypassed.
 
 ```bash
 python scripts/validate_claims.py \
-    --adapter outputs/nullsec1-7b-qlora \
+    --adapter outputs/nullsec-s1-qlora \
     --report releases/nullsec-1.0/benchmark/SUITE.json --check
 ```
 
@@ -109,7 +109,7 @@ the pipeline and must be supported independently.
 
 ## Definition of done for Nullsec-1.0
 
-- `outputs/nullsec1-7b-qlora/adapter_config.json` + weights exist.
+- `outputs/nullsec-s1-qlora/adapter_config.json` + weights exist.
 - `releases/nullsec-1.0/benchmark/SUITE.json` has `run_mode: "model"` and non-empty results.
 - `releases/nullsec-1.0/safety_probes.json` has `passed: true`.
 - `scripts/validate_claims.py --check` passes.

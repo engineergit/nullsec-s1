@@ -28,7 +28,7 @@ The deterministic, model-independent foundation.
 
 Produce the first real `Nullsec-1.0` adapter from the curated corpus.
 
-**Exit criteria:** `outputs/nullsec1-7b-qlora/adapter_config.json` + weights exist
+**Exit criteria:** `outputs/nullsec-s1-qlora/adapter_config.json` + weights exist
 from a real GPU run; `preflight_train.py` passes on the GPU box; the claim
 validator permits `trained model`.
 
