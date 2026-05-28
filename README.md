@@ -1,6 +1,6 @@
 # Nullsec S1
 
-**Security-native LLM system for AI-generated application security.**
+**Security-native LLM system for the AI-generated software era.**
 
 [![tests](https://img.shields.io/badge/tests-passing-brightgreen)](#current-verified-state)
 [![corpus threshold](https://img.shields.io/badge/corpus%20threshold-PASS-brightgreen)](#current-verified-state)
@@ -21,10 +21,9 @@ It combines:
 - CI / API / CLI enforcement
 - a benchmark and release-validation framework
 
-> **Current status — training-ready, corpus-complete, safety-layer-enforced. Not yet a trained model release.**
-> The corpus has reached the v1.0 training threshold and the deterministic safety layer is fully enforced and tested. No GPU training run has happened yet, so there is no trained adapter and no real model benchmark. The repo enforces that distinction automatically (see [Current verified state](#current-verified-state)).
+> **Current status: training-ready, corpus-complete, safety-layer-enforced.** See [Current verified state](#current-verified-state) for the full, honest breakdown.
 
-This is not a scanner. It is a full security system for AI-generated software — a learned reviewer wrapped in a non-bypassable, deterministic enforcement layer.
+This is not a scanner. It is a full security system for AI-generated software — a specialized security model wrapped in a non-bypassable, deterministic enforcement layer.
 
 > **A note on names.** *Nullsec S1* is the system. Its reference implementation ships as the `nullsec1` Python package and CLI, and the model release identity is `Nullsec-1.0` (`python -m nullsec.core.version`). You will see all three; they refer to the same project.
 
@@ -176,6 +175,8 @@ Output is always a single JSON object defined by [`data/schemas/verdict.schema.j
 ---
 
 ## Current verified state
+
+The corpus has reached the v1.0 training threshold and the deterministic Safety Layer is fully enforced and tested. No GPU training run has happened yet, so there is no trained adapter and no real-model benchmark. The repo enforces that distinction automatically through claim validation.
 
 This snapshot reflects the artifacts on disk right now. Every number below is produced by a command in this repo — none are hand-entered. Run the commands in [Quickstart](#quickstart) to reproduce them.
 
