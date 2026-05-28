@@ -1,0 +1,6 @@
+# --- runtime: validator, server, CLI (no GPU needed) ---
+pydantic>=2.6
+jsonschema>=4.21
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pyyaml>=6.0

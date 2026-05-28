@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nullsec1"
+version = "1.0.0"
+description = "Nullsec-1: a security-native code review model with a deterministic production-readiness gate."
+requires-python = ">=3.10"
+dependencies = [
+  "pydantic>=2.6",
+  "jsonschema>=4.21",
+  "fastapi>=0.110",
+  "uvicorn>=0.29",
+  "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+train = [
+  "torch>=2.3", "transformers>=4.44", "peft>=0.11", "trl>=0.9",
+  "bitsandbytes>=0.43", "datasets>=2.19", "accelerate>=0.30", "sentencepiece>=0.2",
+]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+nullsec1 = "cli.nullsec1:main"
+
+[tool.setuptools]
+packages = ["nullsec", "nullsec.core", "nullsec.safety", "nullsec.ingest", "taxonomy", "benchmarks", "corpus", "corpus.authored", "cli", "serving"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

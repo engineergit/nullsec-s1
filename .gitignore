@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+outputs/
+data/processed/
+data/raw/*.jsonl
+*.egg-info/
+.pytest_cache/
+benchmarks/reports/
+releases/*
+!releases/README.md
+data/ingest_candidates/
+data/ingest_rejected/

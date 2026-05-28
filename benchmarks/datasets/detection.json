@@ -1,0 +1,144 @@
+{
+  "version": "1.0.0",
+  "description": "Labeled security benchmark for Nullsec-1. expected_categories is the set Nullsec-1 should detect; expected_production_ready is the Safety-Layer-enforced ground truth. owasp tags map web cases to OWASP Top 10 2021 / OWASP LLM Top 10 2025 where applicable.",
+  "cases": [
+    {
+      "id": "sqli-basic",
+      "filename": "q.py",
+      "lang": "python",
+      "code": "def f(c,u):\n  c.execute('SELECT * FROM t WHERE n=\\'%s\\'' % u)\n",
+      "expected_categories": [
+        "SQL_INJECTION"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false,
+      "owasp": "A03:2021-Injection"
+    },
+    {
+      "id": "secret-aws",
+      "filename": "s.py",
+      "lang": "python",
+      "code": "AWS_KEY='AKIAIOSFODNN7EXAMPLE'\nAWS_SECRET='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'\n",
+      "expected_categories": [
+        "EXPOSED_SECRET"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false,
+      "owasp": "A07:2021-Identification and Authentication Failures"
+    },
+    {
+      "id": "cmd-inject",
+      "filename": "c.js",
+      "lang": "javascript",
+      "code": "app.get('/p',(q,r)=>{require('child_process').exec('ping '+q.query.host)})\n",
+      "expected_categories": [
+        "COMMAND_INJECTION"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false,
+      "owasp": "A03:2021-Injection"
+    },
+    {
+      "id": "no-auth-admin",
+      "filename": "a.py",
+      "lang": "python",
+      "code": "@app.post('/admin/wipe')\ndef wipe():\n  db.wipe()\n  return 'ok'\n",
+      "expected_categories": [
+        "BROKEN_AUTH",
+        "UNSAFE_ADMIN_ROUTE"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false,
+      "owasp": "A01:2021-Broken Access Control"
+    },
+    {
+      "id": "prompt-inject",
+      "filename": "p.py",
+      "lang": "python",
+      "code": "p = SYSTEM + scraped_web_text + user\nreturn llm(p)\n",
+      "expected_categories": [
+        "PROMPT_INJECTION"
+      ],
+      "expected_min_severity": "MEDIUM",
+      "expected_production_ready": false,
+      "owasp": "LLM01:2025-Prompt Injection"
+    },
+    {
+      "id": "mcp-shell",
+      "filename": "m.py",
+      "lang": "python",
+      "code": "@mcp.tool()\ndef sh(c):\n  return os.popen(c).read()\n",
+      "expected_categories": [
+        "MCP_TOOL_ABUSE",
+        "COMMAND_INJECTION"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false,
+      "owasp": "LLM06:2025-Excessive Agency"
+    },
+    {
+      "id": "ssrf",
+      "filename": "f.py",
+      "lang": "python",
+      "code": "@app.get('/fetch')\ndef fetch(url):\n  return requests.get(url).text\n",
+      "expected_categories": [
+        "SSRF"
+      ],
+      "expected_min_severity": "MEDIUM",
+      "expected_production_ready": false,
+      "owasp": "A10:2021-Server-Side Request Forgery"
+    },
+    {
+      "id": "reentrancy",
+      "filename": "v.sol",
+      "lang": "solidity",
+      "code": "function w(uint a) external {\n  msg.sender.call{value:a}('');\n  bal[msg.sender]-=a;\n}\n",
+      "expected_categories": [
+        "SMART_CONTRACT_RISK"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false
+    },
+    {
+      "id": "dep-latest",
+      "filename": "package.json",
+      "lang": "json",
+      "code": "{\"dependencies\":{\"x\":\"latest\"}}\n",
+      "expected_categories": [
+        "DEPENDENCY_RISK"
+      ],
+      "expected_min_severity": "LOW",
+      "expected_production_ready": false,
+      "owasp": "A06:2021-Vulnerable and Outdated Components"
+    },
+    {
+      "id": "clean-parameterized",
+      "filename": "ok.py",
+      "lang": "python",
+      "code": "def f(c,u):\n  c.execute('SELECT * FROM t WHERE n=%s',(u,))\n  return c.fetchone()\n",
+      "expected_categories": [],
+      "expected_min_severity": "INFO",
+      "expected_production_ready": true
+    },
+    {
+      "id": "clean-pure-fn",
+      "filename": "math.py",
+      "lang": "python",
+      "code": "def add(a:int,b:int)->int:\n  return a+b\n",
+      "expected_categories": [],
+      "expected_min_severity": "INFO",
+      "expected_production_ready": true
+    },
+    {
+      "id": "wallet-unbounded",
+      "filename": "send.ts",
+      "lang": "typescript",
+      "code": "export const send=(to,amt)=>transfer(kp,to,amt)\n",
+      "expected_categories": [
+        "WALLET_TRANSACTION_RISK"
+      ],
+      "expected_min_severity": "MEDIUM",
+      "expected_production_ready": false
+    }
+  ]
+}

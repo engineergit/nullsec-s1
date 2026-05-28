@@ -1,0 +1,321 @@
+{
+  "version": "1.1.0",
+  "name": "Nullsec Vulnerability Taxonomy",
+  "description": "Canonical vulnerability categories for Nullsec-1. Each category maps to a deterministic check dimension used by the post-inference validator.",
+  "severity_levels": [
+    "INFO",
+    "LOW",
+    "MEDIUM",
+    "HIGH",
+    "CRITICAL"
+  ],
+  "confidence_levels": [
+    "LOW",
+    "MEDIUM",
+    "HIGH"
+  ],
+  "categories": [
+    {
+      "id": "EXPOSED_SECRET",
+      "title": "Exposed Secret / Credential",
+      "default_severity": "CRITICAL",
+      "check_dimension": "secrets",
+      "cwe": [
+        "CWE-798",
+        "CWE-312",
+        "CWE-256"
+      ],
+      "description": "Hardcoded API keys, private keys, tokens, passwords, or secrets committed to source, logs, or client-shipped code.",
+      "signals": [
+        "sk-",
+        "AKIA",
+        "-----BEGIN",
+        "PRIVATE KEY",
+        "api_key=",
+        "password=",
+        "bearer ",
+        "service_role"
+      ]
+    },
+    {
+      "id": "BROKEN_AUTH",
+      "title": "Broken or Missing Authentication",
+      "default_severity": "CRITICAL",
+      "check_dimension": "auth",
+      "cwe": [
+        "CWE-287",
+        "CWE-306",
+        "CWE-862"
+      ],
+      "description": "Endpoints, routes, or functions that perform sensitive actions without verifying identity, or with bypassable/weak auth.",
+      "signals": [
+        "no auth check",
+        "auth disabled",
+        "verify=False",
+        "skip_auth",
+        "TODO auth"
+      ]
+    },
+    {
+      "id": "MISSING_RATE_LIMIT",
+      "title": "Missing Rate Limiting",
+      "default_severity": "MEDIUM",
+      "check_dimension": "rate_limits",
+      "cwe": [
+        "CWE-770",
+        "CWE-799"
+      ],
+      "description": "Public or expensive endpoints (auth, LLM calls, payments, email) with no throttling, enabling abuse, brute force, or cost amplification.",
+      "signals": [
+        "no rate limit",
+        "unlimited",
+        "no throttle"
+      ]
+    },
+    {
+      "id": "UNSAFE_ADMIN_ROUTE",
+      "title": "Unsafe Admin Route",
+      "default_severity": "HIGH",
+      "check_dimension": "permissions",
+      "cwe": [
+        "CWE-285",
+        "CWE-732"
+      ],
+      "description": "Administrative or privileged routes lacking role checks, exposed in client bundles, or reachable without elevation.",
+      "signals": [
+        "/admin",
+        "is_admin",
+        "role check missing"
+      ]
+    },
+    {
+      "id": "SQL_INJECTION",
+      "title": "SQL Injection",
+      "default_severity": "CRITICAL",
+      "check_dimension": "input_validation",
+      "cwe": [
+        "CWE-89"
+      ],
+      "description": "User-controlled input concatenated into SQL queries instead of parameterized.",
+      "signals": [
+        "f\"SELECT",
+        "+ user",
+        "query +",
+        "execute(f",
+        "format(...) SELECT"
+      ]
+    },
+    {
+      "id": "XSS",
+      "title": "Cross-Site Scripting",
+      "default_severity": "HIGH",
+      "check_dimension": "input_validation",
+      "cwe": [
+        "CWE-79"
+      ],
+      "description": "Unsanitized user input rendered into HTML/DOM, enabling script execution.",
+      "signals": [
+        "dangerouslySetInnerHTML",
+        "innerHTML =",
+        "v-html",
+        "render unescaped"
+      ]
+    },
+    {
+      "id": "SSRF",
+      "title": "Server-Side Request Forgery",
+      "default_severity": "HIGH",
+      "check_dimension": "input_validation",
+      "cwe": [
+        "CWE-918"
+      ],
+      "description": "Server makes outbound requests to user-controlled URLs without allowlist, reaching internal services or metadata endpoints.",
+      "signals": [
+        "requests.get(user",
+        "fetch(req.body.url",
+        "169.254.169.254",
+        "localhost"
+      ]
+    },
+    {
+      "id": "COMMAND_INJECTION",
+      "title": "OS Command Injection",
+      "default_severity": "CRITICAL",
+      "check_dimension": "dangerous_exec",
+      "cwe": [
+        "CWE-78"
+      ],
+      "description": "User input passed to shell/OS command execution without sanitization.",
+      "signals": [
+        "os.system",
+        "subprocess(... shell=True",
+        "exec(",
+        "child_process",
+        "eval("
+      ]
+    },
+    {
+      "id": "UNSAFE_FILE_UPLOAD",
+      "title": "Unsafe File Upload / Path Traversal",
+      "default_severity": "HIGH",
+      "check_dimension": "input_validation",
+      "cwe": [
+        "CWE-434",
+        "CWE-22"
+      ],
+      "description": "Uploads without type/size validation, or file paths built from user input enabling traversal or RCE.",
+      "signals": [
+        "save(filename)",
+        "../",
+        "no extension check",
+        "open(user_path"
+      ]
+    },
+    {
+      "id": "PROMPT_INJECTION",
+      "title": "Prompt Injection",
+      "default_severity": "HIGH",
+      "check_dimension": "input_validation",
+      "cwe": [
+        "CWE-77"
+      ],
+      "description": "Untrusted content (user input, web pages, tool results, files) concatenated into LLM prompts/system instructions without isolation, enabling instruction hijacking.",
+      "signals": [
+        "system_prompt + user",
+        "f\"...{untrusted}\" prompt",
+        "tool output into prompt"
+      ],
+      "nullsec_native": true
+    },
+    {
+      "id": "MCP_TOOL_ABUSE",
+      "title": "MCP Tool Abuse",
+      "default_severity": "HIGH",
+      "check_dimension": "permissions",
+      "cwe": [
+        "CWE-862",
+        "CWE-77"
+      ],
+      "description": "MCP tools exposed with overbroad scope, no auth on the server, dangerous capabilities (fs/shell/network) without confirmation, or tool descriptions that can be poisoned.",
+      "signals": [
+        "mcp server no auth",
+        "tool shell access",
+        "unrestricted fs",
+        "wildcard scope"
+      ],
+      "nullsec_native": true
+    },
+    {
+      "id": "DANGEROUS_SHELL_COMMAND",
+      "title": "Dangerous Shell Command",
+      "default_severity": "HIGH",
+      "check_dimension": "dangerous_exec",
+      "cwe": [
+        "CWE-78",
+        "CWE-77"
+      ],
+      "description": "Destructive or unguarded shell invocations (rm -rf, curl | sh, chmod 777) in scripts, CI, or agent tool calls.",
+      "signals": [
+        "rm -rf",
+        "curl | sh",
+        "wget | bash",
+        "chmod 777",
+        "sudo"
+      ]
+    },
+    {
+      "id": "WALLET_TRANSACTION_RISK",
+      "title": "Wallet / Transaction Risk",
+      "default_severity": "CRITICAL",
+      "check_dimension": "secrets",
+      "cwe": [
+        "CWE-798",
+        "CWE-840"
+      ],
+      "description": "Private keys in code/env shipped to client, unsigned/unbounded transactions, missing simulation, no slippage/amount checks, or seed phrases in logs.",
+      "signals": [
+        "privateKey",
+        "Keypair.fromSecret",
+        "no simulation",
+        "unlimited approval",
+        "seed phrase"
+      ],
+      "nullsec_native": true
+    },
+    {
+      "id": "SMART_CONTRACT_RISK",
+      "title": "Smart Contract Risk",
+      "default_severity": "HIGH",
+      "check_dimension": "input_validation",
+      "cwe": [
+        "CWE-841"
+      ],
+      "description": "Reentrancy, missing access modifiers, unchecked external calls, integer issues, or unsafe delegatecall in on-chain code.",
+      "signals": [
+        "call.value",
+        "no nonReentrant",
+        "delegatecall",
+        "tx.origin",
+        "missing onlyOwner"
+      ],
+      "nullsec_native": true
+    },
+    {
+      "id": "DEPENDENCY_RISK",
+      "title": "Dependency / Supply-Chain Risk",
+      "default_severity": "MEDIUM",
+      "check_dimension": "dependency_risk",
+      "cwe": [
+        "CWE-1104",
+        "CWE-829"
+      ],
+      "description": "Known-vulnerable, unpinned, typosquatted, or postinstall-script dependencies; install from untrusted sources.",
+      "signals": [
+        "^latest",
+        "no lockfile",
+        "postinstall",
+        "git+http",
+        "unpinned"
+      ]
+    },
+    {
+      "id": "ENVIRONMENT_EXPOSURE",
+      "title": "Environment / Configuration Exposure",
+      "default_severity": "HIGH",
+      "check_dimension": "environment_exposure",
+      "cwe": [
+        "CWE-200",
+        "CWE-538",
+        "CWE-540",
+        "CWE-215",
+        "CWE-489"
+      ],
+      "description": "Environment files, server configuration, debug settings, source maps, or cloud metadata exposed to untrusted parties \u2014 e.g. a .env served from a public directory, server secrets bundled into a frontend build, debug config enabled in production, source maps leaking internal env names, or cloud instance-metadata leakage.",
+      "signals": [
+        ".env",
+        "sourceMappingURL",
+        "DEBUG = True",
+        "DEBUG=True",
+        "actuator/env",
+        "169.254.169.254",
+        "metadata.google.internal",
+        "NODE_ENV"
+      ]
+    }
+  ],
+  "check_dimensions": [
+    "auth",
+    "secrets",
+    "input_validation",
+    "rate_limits",
+    "permissions",
+    "dangerous_exec",
+    "dependency_risk",
+    "environment_exposure"
+  ],
+  "dimension_notes": {
+    "summary": "check_dimensions are the 8 axes every verdict must report on. They are NOT categories. A category is a specific vulnerability class and maps to exactly one primary check_dimension.",
+    "input_validation": "DIMENSION, not a category. Categories that exercise it include SQL_INJECTION, XSS, SSRF, UNSAFE_FILE_UPLOAD, PROMPT_INJECTION, SMART_CONTRACT_RISK.",
+    "environment_exposure": "DIMENSION and (as of v1.1.0) also the primary dimension of the ENVIRONMENT_EXPOSURE category."
+  }
+}

@@ -1,0 +1,69 @@
+# Nullsec-1 training configuration.
+# Defaults target a SINGLE 24GB GPU (e.g. RTX 3090/4090) with QLoRA 4-bit.
+# To scale to 14B on A100/40GB+, see the commented overrides below.
+
+model:
+  # v1 default. Swap to Qwen/Qwen2.5-Coder-14B-Instruct on A100/40GB+.
+  base_model: "Qwen/Qwen2.5-Coder-7B-Instruct"
+  trust_remote_code: true
+  # Context length used for tokenization/truncation. 2048 fits comfortably on
+  # 24GB; raise to 4096+ on larger cards.
+  max_seq_length: 2048
+
+quantization:
+  load_in_4bit: true
+  bnb_4bit_quant_type: "nf4"
+  bnb_4bit_use_double_quant: true
+  bnb_4bit_compute_dtype: "bfloat16"
+
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  bias: "none"
+  task_type: "CAUSAL_LM"
+  target_modules:
+    - q_proj
+    - k_proj
+    - v_proj
+    - o_proj
+    - gate_proj
+    - up_proj
+    - down_proj
+
+training:
+  output_dir: "outputs/nullsec1-7b-qlora"
+  num_train_epochs: 3
+  # Effective batch = per_device * grad_accum = 1 * 16 = 16. Fits 24GB.
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 16
+  learning_rate: 2.0e-4
+  lr_scheduler_type: "cosine"
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  logging_steps: 5
+  save_steps: 100
+  save_total_limit: 3
+  gradient_checkpointing: true
+  optim: "paged_adamw_8bit"
+  bf16: true
+  fp16: false
+  max_grad_norm: 0.3
+  seed: 42
+  # Completion-only loss: train on the verdict JSON, not the prompt.
+  train_on_completions_only: true
+
+data:
+  dataset_path: "data/processed/train.jsonl"
+  eval_path: "data/processed/eval.jsonl"
+  eval_split: 0.1
+
+# ---------------------------------------------------------------------------
+# A100 / 40GB+ OVERRIDE (uncomment + merge into the keys above):
+# model.base_model: "Qwen/Qwen2.5-Coder-14B-Instruct"
+# model.max_seq_length: 4096
+# training.per_device_train_batch_size: 2
+# training.gradient_accumulation_steps: 8
+# lora.r: 32
+# lora.alpha: 64
+# ---------------------------------------------------------------------------

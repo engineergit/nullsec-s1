@@ -1,0 +1,128 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://nullsec.dev/schemas/verdict-1.0.0.json",
+  "title": "NullsecVerdict",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "risk_score",
+    "production_ready",
+    "severity",
+    "findings",
+    "affected_files",
+    "checks_performed",
+    "confidence",
+    "reasoning_summary"
+  ],
+  "properties": {
+    "risk_score": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "0 = no risk observed, 100 = certain critical compromise."
+    },
+    "production_ready": {
+      "type": "boolean",
+      "description": "May only be true if all required check dimensions passed with no HIGH/CRITICAL findings. Enforced by the Nullsec Safety Layer, never trusted from the model alone."
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
+    },
+    "confidence": {
+      "type": "string",
+      "enum": ["LOW", "MEDIUM", "HIGH"]
+    },
+    "reasoning_summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4000
+    },
+    "exploit_scenario": {
+      "type": ["string", "null"],
+      "maxLength": 4000
+    },
+    "affected_files": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "checks_performed": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Each required dimension must be present with an explicit status. 'not_checked' blocks production_ready.",
+      "required": [
+        "auth",
+        "secrets",
+        "input_validation",
+        "rate_limits",
+        "permissions",
+        "dangerous_exec",
+        "dependency_risk",
+        "environment_exposure"
+      ],
+      "properties": {
+        "auth": { "$ref": "#/definitions/checkStatus" },
+        "secrets": { "$ref": "#/definitions/checkStatus" },
+        "input_validation": { "$ref": "#/definitions/checkStatus" },
+        "rate_limits": { "$ref": "#/definitions/checkStatus" },
+        "permissions": { "$ref": "#/definitions/checkStatus" },
+        "dangerous_exec": { "$ref": "#/definitions/checkStatus" },
+        "dependency_risk": { "$ref": "#/definitions/checkStatus" },
+        "environment_exposure": { "$ref": "#/definitions/checkStatus" }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/finding" }
+    }
+  },
+  "definitions": {
+    "checkStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "note"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["pass", "fail", "not_applicable", "not_checked"]
+        },
+        "note": { "type": "string", "maxLength": 1000 }
+      }
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "category",
+        "severity",
+        "confidence",
+        "file",
+        "line",
+        "description",
+        "exploit_scenario",
+        "recommended_fix",
+        "secure_patch"
+      ],
+      "properties": {
+        "category": { "type": "string" },
+        "severity": {
+          "type": "string",
+          "enum": ["INFO", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["LOW", "MEDIUM", "HIGH"]
+        },
+        "file": { "type": "string" },
+        "line": { "type": ["integer", "null"], "minimum": 0 },
+        "description": { "type": "string", "minLength": 1 },
+        "exploit_scenario": { "type": "string" },
+        "recommended_fix": { "type": "string" },
+        "secure_patch": {
+          "type": "string",
+          "description": "Unified diff or full replacement snippet that remediates the finding."
+        }
+      }
+    }
+  }
+}
