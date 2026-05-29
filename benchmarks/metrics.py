@@ -240,6 +240,63 @@ def patch_correctness(cases, verdicts) -> dict:
     }
 
 
+def case_reasons(case: dict, verdict, aligned: bool) -> list[str]:
+    """Explain why a single case passed or failed, as machine-readable reason
+    codes. Used by the benchmark debug report so failure analysis does not require
+    eyeballing raw outputs. Reason codes:
+
+      malformed_or_no_output  — no alignable verdict (or no output at all)
+      missed_category:[...]   — an expected category was not detected
+      hallucinated_finding:[...] — finding(s) on a clean case (no expected cats)
+      extra_category:[...]    — finding(s) not in the expected set (unsafe case)
+      low_severity:S<EXP      — overall severity below expected minimum
+      wrong_verdict:G!=E      — production_ready disagrees with ground truth
+      weak_patch:CAT          — an expected finding's secure_patch is non-structural
+    """
+    expected = set(case.get("expected_categories", []))
+    if not aligned or verdict is None:
+        return ["malformed_or_no_output"]
+    detected = {f.category for f in verdict.findings}
+    reasons: list[str] = []
+    missed = expected - detected
+    extra = detected - expected
+    if missed:
+        reasons.append(f"missed_category:{sorted(missed)}")
+    if extra:
+        reasons.append((f"hallucinated_finding:{sorted(extra)}" if not expected
+                        else f"extra_category:{sorted(extra)}"))
+    exp_sev = case.get("expected_min_severity", "INFO")
+    if severity_rank(verdict.severity) < severity_rank(exp_sev):
+        reasons.append(f"low_severity:{verdict.severity}<{exp_sev}")
+    if verdict.production_ready != case.get("expected_production_ready"):
+        reasons.append(f"wrong_verdict:{verdict.production_ready}!={case.get('expected_production_ready')}")
+    for f in verdict.findings:
+        if f.category in expected:
+            patch = (f.secure_patch or "").strip()
+            if len(patch) <= 10 or not any(t in patch for t in ("+", "-", "def ", "=", "(", "{")):
+                reasons.append(f"weak_patch:{f.category}")
+    return reasons or ["passed"]
+
+
+def debug_report(cases, verdicts, failed_only: bool = True) -> dict:
+    """Per-case reason codes for fast failure triage.
+
+    `verdicts` maps case_id -> (Verdict|None, aligned_bool). With failed_only,
+    only cases whose reasons are not exactly ["passed"] are included.
+    """
+    out: dict[str, list[str]] = {}
+    passed = 0
+    for case in cases:
+        v, ok = verdicts.get(case["id"], (None, False))
+        reasons = case_reasons(case, v, ok)
+        if reasons == ["passed"]:
+            passed += 1
+            if failed_only:
+                continue
+        out[case["id"]] = reasons
+    return {"cases": len(cases), "passed": passed, "failed": len(cases) - passed, "per_case": out}
+
+
 def per_category_recall(cases, verdicts) -> dict:
     """Detection recall per taxonomy category, over cases that expect it.
 

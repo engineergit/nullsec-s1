@@ -22,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from benchmarks.harness import write_report
 from benchmarks.metrics import (
+    debug_report,
     detection_over,
     failed_case_ids,
     false_safe_rate,
@@ -46,11 +47,26 @@ FAMILIES = {
 
 
 def main():
-    args = common_args("Nullsec-1 full benchmark suite").parse_args()
+    ap = common_args("Nullsec-1 full benchmark suite")
+    ap.add_argument("--debug", action="store_true",
+                    help="print per-case reason codes (failure triage)")
+    ap.add_argument("--failed-only", action="store_true",
+                    help="with --debug, show only cases that did not pass")
+    args = ap.parse_args()
     ds = load(args)
     verdicts = collect_verdicts(ds, build_provider(args))
 
     suite = {name: fn(ds["cases"], verdicts) for name, fn in FAMILIES.items()}
+    # Per-case reason codes (always recorded in the report; printed with --debug).
+    dbg = debug_report(ds["cases"], verdicts, failed_only=bool(args.failed_only))
+    suite["debug"] = dbg
+    if args.debug:
+        print("Per-case reasons "
+              f"({'failed only' if args.failed_only else 'all'}; "
+              f"{dbg['passed']}/{dbg['cases']} passed):")
+        for cid, reasons in dbg["per_case"].items():
+            print(f"  {cid:34} {', '.join(reasons)}")
+        print()
     # Headline summary: total cases and how many produced an alignable output.
     produced = sum(1 for cid in (c["id"] for c in ds["cases"]) if verdicts.get(cid, (None, False))[1])
     suite["summary"] = {

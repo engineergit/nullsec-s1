@@ -91,6 +91,16 @@ def parse_verdict(raw: str) -> Verdict:
     except jsonschema.ValidationError as e:
         raise VerdictParseError(f"schema violation: {e.message}") from e
 
+    # Normalize equivalent/synonym finding-category labels to canonical taxonomy
+    # ids before type validation. This recovers a correct finding when the model
+    # emits a known synonym (e.g. "IDOR" -> BROKEN_AUTH, "RCE" -> COMMAND_INJECTION);
+    # genuinely unknown categories are left unchanged and still rejected below.
+    from taxonomy import normalize_category
+
+    for f in data.get("findings", []) or []:
+        if isinstance(f, dict) and "category" in f:
+            f["category"] = normalize_category(f["category"])
+
     try:
         return Verdict.model_validate(data)
     except Exception as e:  # pydantic ValidationError

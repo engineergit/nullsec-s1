@@ -92,18 +92,28 @@ class NullsecPipeline:
             messages, tokenize=False, add_generation_prompt=True
         )
 
+    def _gen_kwargs(self, **extra) -> dict:
+        """Generation kwargs. For deterministic (greedy) decoding we do NOT pass
+        sampling-only flags like temperature/top_p — passing them while
+        do_sample=False is invalid and emits warnings."""
+        kw = dict(
+            max_new_tokens=self.config.max_new_tokens,
+            pad_token_id=self._tokenizer.eos_token_id,
+        )
+        if self.config.temperature and self.config.temperature > 0:
+            kw["do_sample"] = True
+            kw["temperature"] = self.config.temperature
+        else:
+            kw["do_sample"] = False  # greedy; no temperature/top_p
+        kw.update(extra)
+        return kw
+
     def _generate(self, prompt: str) -> str:
         import torch
 
         inputs = self._tokenizer(prompt, return_tensors="pt").to(self._model.device)
         with torch.no_grad():
-            out = self._model.generate(
-                **inputs,
-                max_new_tokens=self.config.max_new_tokens,
-                do_sample=self.config.temperature > 0,
-                temperature=max(self.config.temperature, 1e-5),
-                pad_token_id=self._tokenizer.eos_token_id,
-            )
+            out = self._model.generate(**inputs, **self._gen_kwargs())
         gen = out[0][inputs["input_ids"].shape[1] :]
         return self._tokenizer.decode(gen, skip_special_tokens=True)
 
@@ -119,14 +129,7 @@ class NullsecPipeline:
         streamer = TextIteratorStreamer(
             self._tokenizer, skip_prompt=True, skip_special_tokens=True
         )
-        kwargs = dict(
-            **inputs,
-            max_new_tokens=self.config.max_new_tokens,
-            do_sample=self.config.temperature > 0,
-            temperature=max(self.config.temperature, 1e-5),
-            pad_token_id=self._tokenizer.eos_token_id,
-            streamer=streamer,
-        )
+        kwargs = dict(**inputs, **self._gen_kwargs(streamer=streamer))
         Thread(target=self._model.generate, kwargs=kwargs).start()
         for token in streamer:
             yield token
