@@ -41,6 +41,7 @@ This is not a scanner. It is a full security system for AI-generated software �
 - [How S1 is different](#how-s1-is-different)
 - [Core system components](#core-system-components)
 - [Current verified state](#current-verified-state)
+- [Training runs: RC1 → RC2](#training-runs-rc1--rc2)
 - [The Security Alignment Layer](#the-security-alignment-layer)
 - [Quickstart](#quickstart)
 - [Corpus status](#corpus-status)
@@ -180,33 +181,62 @@ Output is always a single JSON object defined by [`data/schemas/verdict.schema.j
 
 ## Current verified state
 
-The corpus has reached the v1.0 training threshold and the deterministic Safety Layer is fully enforced and tested. No GPU training run has happened yet, so there is no trained adapter and no real-model benchmark. The repo enforces that distinction automatically through claim validation.
+The corpus exceeds the v1.0 training threshold and the deterministic Safety Layer is fully enforced and tested. This **source checkout** contains no committed trained adapter or benchmark report — trained weights are published as GitHub Release assets, not committed to source (see [Training runs](#training-runs-rc1--rc2)). The repo enforces that distinction automatically through claim validation.
 
 This snapshot reflects the artifacts on disk right now. Every number below is produced by a command in this repo — none are hand-entered. Run the commands in [Quickstart](#quickstart) to reproduce them.
 
 | Fact | Value | Source command |
 |------|-------|----------------|
-| Curated corpus | **500** examples (63 hand-authored + 437 curated-ingested) | `training/dataset_stats.py --include-ingested` |
-| Train / eval split | **400 train / 100 eval** (eval_frac 0.2, seed 42) | `training/prepare_dataset.py --include-ingested` |
+| Curated corpus | **556** examples (119 hand-authored + 437 curated-ingested) | `training/dataset_stats.py --include-ingested` |
+| Train / eval split | **445 train / 111 eval** (eval_frac 0.2, seed 42) | `training/prepare_dataset.py --include-ingested` |
 | Taxonomy categories | **16** categories → 8 check dimensions | `taxonomy/taxonomy.json` |
-| Per-category coverage | every category **≥ 30** curated (threshold requires ≥ 25) | `training/release_threshold.py --include-ingested` |
-| Safety Layer consistency | **100%** (500 / 500) | `training/dataset_stats.py --include-ingested` |
+| Per-category coverage | every category **≥ 31** curated (v1.0 needs ≥ 25; v1.1 target ≥ 60) | `training/release_threshold.py --include-ingested` |
+| Safety Layer consistency | **100%** (556 / 556) | `training/dataset_stats.py --include-ingested` |
+| Benchmark suite | **111** labeled cases across all 16 categories | `benchmarks/datasets/detection.json` |
 | Adversarial safety probes | **8 / 8 blocked**, 0 bypassed | `python -m benchmarks.safety_probes` |
 | Test suite | passing | `pytest -q` |
-| Release threshold | **PASS** | `training/release_threshold.py --include-ingested` |
+| Release threshold (v1.0) | **PASS** | `training/release_threshold.py --include-ingested` |
+| Release threshold (v1.1 / RC2) | **BLOCKED** (corpus 556/1000) — honest gap | `training/release_threshold.py --include-ingested --profile rc2` |
 
-**What the claim validator currently permits** (`python scripts/validate_claims.py`):
+**What the claim validator permits for this checkout** (`python scripts/validate_claims.py`):
 
 - ✅ `training-ready` — pipeline, schema, and a non-empty curated corpus are present
 - ✅ `safety-layer-enforced` — all adversarial Safety Layer probes are blocked
-- ⛔ `trained model` — **forbidden**: no trained adapter exists yet
-- ⛔ `benchmarked` — **forbidden**: no real model benchmark report exists yet
-- ⛔ real-model evaluation — **forbidden**: no benchmark report from a live model run exists
-- ⛔ `release candidate` — **forbidden**: requires a trained adapter, a real benchmark, probes, and a bundle
-- ⛔ `production-ready` (the model) — **forbidden**: the highest bar, gated on all of the above
+- ⛔ `trained model` — **gated here**: no trained adapter is committed to this source repo (RC1's is a GitHub Release asset)
+- ⛔ `benchmarked` — **gated here**: no benchmark report is committed to this checkout
+- ⛔ real-model evaluation — **gated here**: same reason
+- ⛔ `release candidate` — **gated here**: requires the trained adapter, benchmark, probes, and bundle to be present
+- ⛔ `production-ready` (the model) — **gated here**: the v1.0 bar; RC2 adds a stricter, separate gate (≥ 100 benchmark cases, F1 ≥ 0.90, zero false-safe)
 - ⛔ `first / only / best` — **never** auto-permitted from local artifacts
 
-The honesty gate (`scripts/validate_claims.py --check`) scans this README and fails CI if it asserts anything the artifacts do not support. The wording here is written to pass that check truthfully.
+The honesty gate (`scripts/validate_claims.py --check`) scans this README and fails CI if it asserts anything the on-disk artifacts do not support. The wording here is written to pass that check truthfully — and it stays conservative **by design** even though RC1 has run, because RC1's artifacts are distributed as a Release rather than committed here.
+
+---
+
+## Training runs: RC1 → RC2
+
+**RC1 — completed.** The first real QLoRA training run was carried out on a RunPod
+**A100 80GB** box against this corpus, using the hardened CUDA 12.1 stack
+(`torch==2.5.1+cu121`). Its trained adapter, real-model benchmark report, and
+adversarial safety-probe results are published as a **GitHub Release**, not
+committed to this source repo — the repository stays lightweight and trained
+weights ship as release assets. The RC1 stack fixes (the reason `train_qlora.py`
+uses `max_length`, drops the legacy completion-only collator, and pins the cu121
+torch build) are documented in [`RELEASE_TRAINING.md`](RELEASE_TRAINING.md),
+[`RUNPOD.md`](RUNPOD.md), and [`docs/ROADMAP.md`](docs/ROADMAP.md).
+
+Because those artifacts are intentionally absent from this checkout, the in-repo
+claim validator stays conservative here — it gates trained/benchmarked wording on
+what is present on disk. That is the point: the README never asserts more than
+this checkout can prove.
+
+**RC2 / v1.1 — in preparation.** A stronger run: a larger curated corpus (target
+1,000), the benchmark expanded to 100+ cases across all 16 categories (done: 111),
+and a hardened, reproducible CUDA 12.1 training stack. RC2 has its own stricter
+data gate (`training/release_threshold.py --profile rc2`) and a stricter,
+separate production-ready claim gate (real-model release candidate, ≥ 100 benchmark
+cases, zero false-safe rate, detection F1 ≥ 0.90). Both report BLOCKED today until
+the corpus reaches the v1.1 target — see [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ---
 

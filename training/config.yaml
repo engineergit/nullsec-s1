@@ -39,7 +39,9 @@ training:
   gradient_accumulation_steps: 16
   learning_rate: 2.0e-4
   lr_scheduler_type: "cosine"
-  warmup_ratio: 0.03
+  # Explicit warmup steps (was warmup_ratio). At effective batch 16 the RC2 run
+  # is ~150 steps for 800 train examples over 3 epochs; ~10 warmup steps is sane.
+  warmup_steps: 10
   weight_decay: 0.0
   logging_steps: 5
   save_steps: 100
@@ -50,8 +52,13 @@ training:
   fp16: false
   max_grad_norm: 0.3
   seed: 42
-  # Completion-only loss: train on the verdict JSON, not the prompt.
-  train_on_completions_only: true
+  # Completion-only (assistant-only) loss. The legacy TRL
+  # DataCollatorForCompletionOnlyLM was removed from recent TRL, and modern
+  # assistant_only_loss needs a chat template with {% generation %} markers,
+  # which Qwen2.5-Coder's stock template lacks. RC1 therefore trained with
+  # full-sequence SFT (F1 0.9091). Leave false unless you use a base whose chat
+  # template supports assistant-only loss; train_qlora.py falls back safely.
+  train_on_completions_only: false
 
 data:
   dataset_path: "data/processed/train.jsonl"

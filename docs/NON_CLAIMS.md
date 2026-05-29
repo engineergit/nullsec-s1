@@ -13,23 +13,29 @@ Nullsec S1 fine-tunes an open code model (`Qwen/Qwen2.5-Coder-7B-Instruct`,
 Apache 2.0) with QLoRA. It does **not** pretrain a foundation model from scratch,
 and it does not claim to.
 
-## Not yet a trained model release
+## No trained weights committed to this source repo
 
-As of this snapshot there is **no trained adapter** on disk
-(`outputs/.../adapter_config.json` + weights). The system is *training-ready*: the
-pipeline, corpus, schema, and safety layers are real and runnable. Until a real
-GPU training run produces an adapter, the claim validator **forbids** "trained
-model" wording and the repo will not assert it.
+RC1 (the first real QLoRA run) *did* produce a trained adapter, and it is
+published as a **GitHub Release asset** — but it is deliberately **not committed**
+to this source repo (trained weights ship as release assets; the repo stays
+lightweight). So in this checkout there is **no trained adapter on disk**
+(`outputs/.../adapter_config.json` + weights). The in-repo claim validator gates
+on what is present here, so it continues to treat this checkout as
+*training-ready* and **forbids** unqualified "trained model" wording in `README.md`.
+This is intentional: the README never asserts more than the checkout can prove.
+RC1's results are stated in `docs/ROADMAP.md`, attributed to the published Release
+bundle as the source of truth.
 
-## Not yet benchmarked with real model outputs
+## No benchmark numbers asserted in this checkout
 
-There is **no real-model benchmark report**. The benchmark suite produces numbers
-only from real runs (`--mode model`, or `--mode replay` over captured real
-outputs), and a case with no output is scored as a real miss. No precomputed
-metrics ship with the repo. Until a real run exists, the claim validator
-**forbids** "benchmarked" and real-model evaluation wording. In particular, the
-repo states **no** detection F1, precision, recall, false-safe rate, or any other
-performance number — because none have been measured.
+RC1 was evaluated against the live model and its `SUITE.json` lives in the
+published Release bundle. This source checkout commits **no** benchmark report, so
+the claim validator **forbids** "benchmarked"/real-model-evaluation wording in
+`README.md`, and the README states **no** detection F1, precision, recall, or
+false-safe rate as a repo-verified fact. Benchmark numbers come only from real
+runs (`--mode model`, or `--mode replay` over captured real outputs); a case with
+no output is scored as a real miss, never a synthetic pass. The repo ships no
+precomputed result files.
 
 ## Not a replacement for human security review
 

@@ -32,6 +32,47 @@ MIN_CURATED = 500
 MIN_PER_CATEGORY = 25
 MIN_EVAL = 100
 
+# Release profiles. v1.0 is the SHIPPED gate and is never weakened. v1.1 (RC2) is
+# a SEPARATE, stricter gate layered on top — it does not change v1.0 behavior.
+PROFILES = {
+    "v1.0": {
+        "min_curated": 500, "min_per_category": 25, "min_eval": 100,
+        "min_benchmark_cases": 0, "require_all_categories_benchmarked": False,
+    },
+    "v1.1": {
+        "min_curated": 1000, "min_per_category": 60, "min_eval": 200,
+        "min_benchmark_cases": 100, "require_all_categories_benchmarked": True,
+    },
+}
+PROFILE_ALIASES = {"rc2": "v1.1", "1.0": "v1.0", "1.1": "v1.1"}
+
+
+def benchmark_criteria(min_cases: int, require_all_categories: bool) -> dict:
+    """Benchmark-side criteria for the RC2 profile (separate from corpus checks)."""
+    crit: dict = {}
+    try:
+        from benchmarks.harness import load_dataset
+        from taxonomy import load_taxonomy
+
+        ds = load_dataset("detection.json")
+        cases = ds.get("cases", [])
+        n = len(cases)
+        covered = set()
+        for c in cases:
+            covered.update(c.get("expected_categories", []))
+        all_cats = {c["id"] for c in load_taxonomy()["categories"]}
+        missing = sorted(all_cats - covered)
+    except Exception as e:  # benchmark dataset missing/unreadable
+        crit[f"benchmark cases >= {min_cases}"] = (False, f"could not load benchmark: {e}")
+        return crit
+
+    crit[f"benchmark cases >= {min_cases}"] = (n >= min_cases, f"{n}/{min_cases}")
+    if require_all_categories:
+        crit["benchmark covers all 16 categories"] = (
+            not missing, "all 16 covered" if not missing else f"missing {len(missing)}: {missing}"
+        )
+    return crit
+
 
 def evaluate(examples, eval_frac, seed, min_curated, min_per_cat, min_eval) -> dict:
     s = compute(examples, eval_frac, seed)
@@ -62,37 +103,54 @@ def evaluate(examples, eval_frac, seed, min_curated, min_per_cat, min_eval) -> d
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Nullsec-1.0 training-readiness threshold")
+    ap = argparse.ArgumentParser(description="Nullsec training-readiness threshold")
     ap.add_argument("--eval-split", type=float, default=0.2)
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--include-synthetic", action="store_true")
     ap.add_argument("--include-ingested", action="store_true")
-    ap.add_argument("--min-curated", type=int, default=MIN_CURATED)
-    ap.add_argument("--min-per-category", type=int, default=MIN_PER_CATEGORY)
-    ap.add_argument("--min-eval", type=int, default=MIN_EVAL)
+    ap.add_argument("--profile", default="v1.0",
+                    help="release profile: v1.0 (default, shipped gate) or v1.1/rc2 (stricter RC2 gate)")
+    # Explicit overrides; default None means "use the profile value".
+    ap.add_argument("--min-curated", type=int, default=None)
+    ap.add_argument("--min-per-category", type=int, default=None)
+    ap.add_argument("--min-eval", type=int, default=None)
     args = ap.parse_args()
 
-    examples = load_corpus(include_synthetic=args.include_synthetic, include_ingested=args.include_ingested)
-    r = evaluate(examples, args.eval_split, args.seed,
-                 args.min_curated, args.min_per_category, args.min_eval)
+    profile_key = PROFILE_ALIASES.get(args.profile, args.profile)
+    if profile_key not in PROFILES:
+        print(f"unknown profile '{args.profile}'. Choose from: {', '.join(PROFILES)} (alias rc2=v1.1).")
+        sys.exit(2)
+    prof = PROFILES[profile_key]
 
-    print("Nullsec-1.0 training-readiness threshold")
+    min_curated = args.min_curated if args.min_curated is not None else prof["min_curated"]
+    min_per_cat = args.min_per_category if args.min_per_category is not None else prof["min_per_category"]
+    min_eval = args.min_eval if args.min_eval is not None else prof["min_eval"]
+
+    examples = load_corpus(include_synthetic=args.include_synthetic, include_ingested=args.include_ingested)
+    r = evaluate(examples, args.eval_split, args.seed, min_curated, min_per_cat, min_eval)
+
+    criteria = dict(r["criteria"])
+    if prof["min_benchmark_cases"] > 0:
+        criteria.update(benchmark_criteria(prof["min_benchmark_cases"], prof["require_all_categories_benchmarked"]))
+    passed = all(ok for ok, _ in criteria.values())
+
+    print(f"Nullsec training-readiness threshold — profile {profile_key}")
     print("=" * 60)
-    for name, (ok, detail) in r["criteria"].items():
+    for name, (ok, detail) in criteria.items():
         print(f"[{'PASS' if ok else 'FAIL'}] {name:<40} {detail}")
     ss = r["stats_summary"]
     print("-" * 60)
     print(f"curated: {ss['curated_total']}  total: {ss['total']}  provenance: {ss['provenance']}")
     if r["below_categories"]:
-        print(f"categories below {args.min_per_category} curated: {r['below_categories']}")
+        print(f"categories below {min_per_cat} curated: {r['below_categories']}")
     print("=" * 60)
-    if r["passed"]:
-        print("RESULT: PASS — corpus meets the v1.0 training threshold.")
+    if passed:
+        print(f"RESULT: PASS — corpus meets the {profile_key} training threshold.")
         sys.exit(0)
-    gap = max(0, args.min_curated - ss["curated_total"])
-    print(f"RESULT: BLOCKED — corpus is not yet v1.0-ready.")
-    print(f"  Need {gap} more curated examples (and >= {args.min_per_category}/category, "
-          f">= {args.min_eval} eval). Close the gap with real CVE/scanner ingestion "
+    gap = max(0, min_curated - ss["curated_total"])
+    print(f"RESULT: BLOCKED — corpus is not yet {profile_key}-ready.")
+    print(f"  Need {gap} more curated examples (and >= {min_per_cat}/category, "
+          f">= {min_eval} eval). Close the gap with real CVE/scanner ingestion "
           "(nullsec.ingest), real AI-generated failure cases, and continued authoring — "
           "not synthetic padding.")
     sys.exit(1)

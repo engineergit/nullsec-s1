@@ -34,15 +34,44 @@ sys.path.insert(0, str(ROOT))
 GPU_DEPS = ("torch", "transformers", "peft", "trl", "bitsandbytes", "datasets", "accelerate")
 MIN_PYTHON = (3, 10)
 
+# Known-good build from RC1; a CUDA 13 / Torch 2.12 wheel failed on the RunPod driver.
+CU121_TORCH_HINT = (
+    "Likely a Torch/CUDA build mismatch (e.g. a CUDA 13 / Torch 2.12 wheel on a "
+    "CUDA 12.x driver). Reinstall the known-good build:\n"
+    "    pip install torch==2.5.1+cu121 --index-url https://download.pytorch.org/whl/cu121\n"
+    "Then re-run preflight. See RUNPOD.md / GPU_QUICKSTART.md."
+)
+
+
+def _nvidia_smi_gpu_name() -> str | None:
+    """Return the first GPU name reported by nvidia-smi, or None if unavailable."""
+    import shutil
+    import subprocess
+
+    if not shutil.which("nvidia-smi"):
+        return None
+    try:
+        out = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        lines = [ln.strip() for ln in out.stdout.splitlines() if ln.strip()]
+        return lines[0] if lines else None
+    except Exception:
+        return None
+
 
 class Check:
     """A single preflight result."""
 
-    def __init__(self, name: str, ok: bool, detail: str, *, gpu: bool = False):
+    def __init__(self, name: str, ok: bool, detail: str, *, gpu: bool = False, mismatch: bool = False):
         self.name = name
         self.ok = ok
         self.detail = detail
         self.gpu = gpu  # True if this check specifically establishes GPU availability
+        self.mismatch = mismatch  # True if a GPU is present but torch.cuda can't see it
 
 
 def check_python() -> Check:
@@ -63,20 +92,41 @@ def check_gpu_deps() -> tuple[list[Check], bool]:
 
 
 def check_cuda() -> Check:
-    """Establish whether a CUDA GPU is visible. This is the GPU gate (exit 2)."""
+    """Establish whether a CUDA GPU is visible. This is the GPU gate (exit 2).
+
+    Distinguishes two failure modes:
+      - genuinely no GPU (laptop / CPU box), and
+      - a GPU is present (nvidia-smi sees it) but torch.cuda cannot use it, which
+        is almost always a Torch/CUDA build mismatch.
+    """
     try:
         import torch
     except Exception as e:  # torch not installed -> cannot train here
+        gpu_name = _nvidia_smi_gpu_name()
+        if gpu_name:
+            return Check(
+                "CUDA GPU", False,
+                f"GPU '{gpu_name}' present but torch is not importable ({type(e).__name__})",
+                gpu=True, mismatch=True,
+            )
         return Check("CUDA GPU", False, f"torch not importable ({type(e).__name__}); install the train stack on a GPU box", gpu=True)
     try:
         available = bool(torch.cuda.is_available())
     except Exception as e:
-        return Check("CUDA GPU", False, f"torch.cuda check raised {type(e).__name__}", gpu=True)
+        return Check("CUDA GPU", False, f"torch.cuda check raised {type(e).__name__}", gpu=True, mismatch=True)
     if not available:
-        return Check("CUDA GPU", False, "no CUDA device visible to torch", gpu=True)
+        gpu_name = _nvidia_smi_gpu_name()
+        if gpu_name:
+            return Check(
+                "CUDA GPU", False,
+                f"MISMATCH: nvidia-smi sees '{gpu_name}' but torch.cuda.is_available() is False",
+                gpu=True, mismatch=True,
+            )
+        return Check("CUDA GPU", False, "no CUDA device visible to torch (and nvidia-smi reports no GPU)", gpu=True)
     count = torch.cuda.device_count()
     names = ", ".join(torch.cuda.get_device_name(i) for i in range(count))
-    return Check("CUDA GPU", True, f"{count} device(s): {names}", gpu=True)
+    built = getattr(torch.version, "cuda", "?")
+    return Check("CUDA GPU", True, f"{count} device(s): {names} (torch CUDA {built})", gpu=True)
 
 
 def check_dataset(config_path: Path) -> Check:
@@ -155,10 +205,15 @@ def main() -> int:
 
     gpu_ok = all(c.ok for c in checks if c.gpu)
     other_ok = all(c.ok for c in checks if not c.gpu)
+    mismatch = any(c.mismatch for c in checks if c.gpu)
 
     if not gpu_ok:
-        print("RESULT: NO GPU — this machine cannot run QLoRA training.")
-        print("        Provision a CUDA-capable NVIDIA GPU box and see GPU_QUICKSTART.md.")
+        if mismatch:
+            print("RESULT: GPU PRESENT BUT UNUSABLE — Torch/CUDA mismatch.")
+            print("        " + CU121_TORCH_HINT.replace("\n", "\n        "))
+        else:
+            print("RESULT: NO GPU — this machine cannot run QLoRA training.")
+            print("        Provision a CUDA-capable NVIDIA GPU box and see GPU_QUICKSTART.md.")
         return 2
     if not other_ok:
         print("RESULT: BLOCKED — a non-GPU prerequisite is not satisfied (see FAIL rows above).")

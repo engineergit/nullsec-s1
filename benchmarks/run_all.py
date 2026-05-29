@@ -23,10 +23,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from benchmarks.harness import write_report
 from benchmarks.metrics import (
     detection_over,
+    failed_case_ids,
     false_safe_rate,
     hallucination_rate,
     owasp_coverage,
     patch_correctness,
+    per_category_recall,
     secure_generation_score,
 )
 from benchmarks.runners._common import build_provider, collect_verdicts, common_args, load
@@ -38,6 +40,8 @@ FAMILIES = {
     "owasp_coverage": owasp_coverage,
     "patch_correctness": patch_correctness,
     "secure_generation": secure_generation_score,
+    "per_category_recall": per_category_recall,
+    "failed_cases": failed_case_ids,
 }
 
 
@@ -47,9 +51,25 @@ def main():
     verdicts = collect_verdicts(ds, build_provider(args))
 
     suite = {name: fn(ds["cases"], verdicts) for name, fn in FAMILIES.items()}
+    # Headline summary: total cases and how many produced an alignable output.
+    produced = sum(1 for cid in (c["id"] for c in ds["cases"]) if verdicts.get(cid, (None, False))[1])
+    suite["summary"] = {
+        "total_cases": len(ds["cases"]),
+        "total_outputs": produced,
+        "detection_f1": suite["detection_accuracy"].get("detection_f1"),
+        "detection_precision": suite["detection_accuracy"].get("detection_precision"),
+        "detection_recall": suite["detection_accuracy"].get("detection_recall"),
+        "false_safe_rate": suite["false_safe_rate"].get("false_safe_rate"),
+        "hallucination_rate": suite["hallucination_rate"].get("hallucination_rate"),
+        "patch_correctness": suite["patch_correctness"].get("patch_correctness"),
+        "secure_generation_score": suite["secure_generation"].get("secure_generation_score"),
+        "owasp_coverage": suite["owasp_coverage"].get("coverage"),
+        "categories_below_full_recall": suite["per_category_recall"].get("categories_below_full_recall"),
+        "failed_case_ids": [f["id"] for f in suite["failed_cases"].get("failed", [])],
+    }
     out = write_report("SUITE", args.mode, args.dataset, args.adapter, suite)
-    print(json.dumps(suite, indent=2))
-    print(f"\nconsolidated report -> {out}")
+    print(json.dumps(suite["summary"], indent=2))
+    print(f"\nconsolidated report -> {out}  (run_mode={args.mode}, adapter={args.adapter})")
 
 
 if __name__ == "__main__":

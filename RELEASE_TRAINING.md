@@ -5,13 +5,32 @@ safety framework) to a trained Nullsec-1.0 artifact with real benchmark numbers.
 Every step is runnable; the release pipeline refuses to produce a bundle unless
 each prior step really happened.
 
+> **RC1 has already run this path** on a RunPod **A100 80GB** box with the
+> hardened CUDA 12.1 stack (`torch==2.5.1+cu121`). RC1's adapter, real-model
+> benchmark report, and safety-probe results are published as a **GitHub Release**,
+> not committed to this source repo (trained weights ship as release assets; the
+> repo stays lightweight). RC1's reported metrics are in
+> [`docs/ROADMAP.md`](docs/ROADMAP.md). **RC2 / v1.1** re-runs this path on a larger
+> corpus and the expanded 111-case benchmark; see the RC2 gate
+> (`training/release_threshold.py --profile rc2`).
+
 ## 0. Environment
+
+Install the known-good CUDA 12.1 stack (the build that completed RC1). Install the
+pinned torch first so nothing replaces it:
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
-pip install -e ".[train]"     # GPU stack: torch, transformers, peft, trl, bitsandbytes
+pip install -e ".[dev]"
+pip install torch==2.5.1+cu121 --index-url https://download.pytorch.org/whl/cu121
+pip install -r requirements-train-cu121.txt
+python -c "import torch; print(torch.__version__, torch.version.cuda, torch.cuda.is_available())"  # 2.5.1+cu121 12.1 True
 python -m nullsec.core.version # sanity: prints identity + fingerprint
 ```
+
+A CUDA 13 / Torch 2.12 wheel failed on the RunPod driver during RC1; if
+`torch.cuda.is_available()` is `False` while `nvidia-smi` shows a GPU, reinstall
+the cu121 line. `python training/preflight_train.py` detects this mismatch.
 
 Target hardware for v1: a single 24GB GPU (QLoRA, 4-bit). The 14B config in
 `training/config.yaml` targets A100/40GB+ and is a config-only swap.

@@ -20,6 +20,12 @@ DEFAULT_RELEASE = ROOT / "releases" / "nullsec-1.0"
 # Detection F1 below which we will not call the model meaningfully "evaluated well".
 MIN_USEFUL_F1 = 0.50
 
+# RC2 (v1.1) production-ready gate — STRICTER and SEPARATE from the v1.0 bar.
+# It never relaxes the v1.0 "production-ready" claim; it is an additional claim
+# that stays forbidden until a real-model run clears the higher bar.
+RC2_MIN_F1 = 0.90
+RC2_MIN_BENCHMARK_CASES = 100
+
 _TOKENIZER_HINTS = ("tokenizer.json", "tokenizer_config.json", "tokenizer.model", "vocab.json")
 
 
@@ -57,6 +63,13 @@ class RepoState:
         if not self.benchmark_report:
             return None
         return self.benchmark_report.get("results", {}).get("false_safe_rate", {}).get("false_safe_rate")
+
+    @property
+    def benchmark_cases(self) -> int:
+        if not self.benchmark_report:
+            return 0
+        det = self.benchmark_report.get("results", {}).get("detection_accuracy", {})
+        return int(det.get("cases", 0) or 0)
 
 
 def find_adapter(path: str | Path | None) -> tuple[Path | None, bool, bool]:
@@ -197,6 +210,32 @@ def evaluate_claims(st: RepoState) -> list[Claim]:
               if prod else
               "not substantiated: requires release-candidate status, zero false-safe rate, "
               "and adequate detection F1 from a real-model run")
+    )
+
+    # production-ready (RC2) — a STRICTER, SEPARATE gate. Does not replace the
+    # v1.0 "production-ready" claim above; it adds a higher RC2 bar that requires
+    # a real-model run, a large benchmark (>= 100 cases), zero false-safe rate,
+    # and a strong detection F1.
+    rc2 = (
+        rc
+        and st.run_mode == "model"
+        and st.benchmark_cases >= RC2_MIN_BENCHMARK_CASES
+        and fsr == 0.0
+        and f1 >= RC2_MIN_F1
+        and st.safety_probes_passed is True
+        and st.release_bundle is not None
+    )
+    claims.append(
+        Claim(
+            "production-ready (RC2 / v1.1)", rc2,
+            f"RC2 gate met: real-model release candidate, {st.benchmark_cases} benchmark cases "
+            f"(>= {RC2_MIN_BENCHMARK_CASES}), false_safe_rate==0, detection F1 {f1:.2f} >= {RC2_MIN_F1} "
+            "(still recommend independent review)"
+            if rc2 else
+            "not substantiated: RC2 requires a real-model release candidate, "
+            f">= {RC2_MIN_BENCHMARK_CASES} benchmark cases, zero false-safe rate, and detection "
+            f"F1 >= {RC2_MIN_F1}",
+        )
     )
 
     # novelty / superiority — never auto-permitted.

@@ -10,6 +10,16 @@ For the provider-agnostic version (Lambda, Vast, your own box) see
 > Nothing here fakes a model. You are running the real pipeline; it produces real
 > artifacts and refuses to produce a release bundle unless they are real.
 
+> ### ✅ Known-good RC1 setup (this exact setup completed RC1)
+>
+> - **GPU:** RunPod **A100 80GB** — worked.
+> - **Template:** an official **PyTorch / CUDA** template — worked.
+> - **Torch:** **`torch==2.5.1+cu121`** (CUDA 12.1 build) — worked.
+> - **What failed:** a **CUDA 13 / Torch 2.12** wheel on the RunPod driver — do
+>   not use it. If `torch.cuda.is_available()` is `False` while `nvidia-smi` shows
+>   a GPU, you have this mismatch; reinstall the cu121 build (step 9).
+> - **fsspec:** if `datasets` errors on import, pin `fsspec==2024.6.1` (step 9).
+
 ---
 
 ## 1. Pick a GPU
@@ -80,14 +90,35 @@ python -m pip install --upgrade pip setuptools wheel
 python -m pip install -e ".[dev]"
 ```
 
-## 9. Install train dependencies (GPU stack)
+## 9. Install train dependencies (the known-good cu121 stack)
+
+Install the **CUDA 12.1 torch build first** so nothing pulls a mismatched wheel,
+then the rest of the stack:
 
 ```bash
-python -m pip install -r requirements-train.txt
+# 1) pinned cu121 torch (the RC1 known-good build)
+python -m pip install torch==2.5.1+cu121 --index-url https://download.pytorch.org/whl/cu121
+
+# 2) the rest of the train stack (torch>=2.3 is already satisfied -> not replaced)
+python -m pip install -r requirements-train-cu121.txt
 ```
 
-This pulls torch, transformers, peft, trl, bitsandbytes, datasets, accelerate,
-and sentencepiece.
+**Verify CUDA is actually usable** (this is the check that catches the CUDA 13 /
+Torch 2.12 failure mode):
+
+```bash
+python -c "import torch; print(torch.__version__, torch.version.cuda, torch.cuda.is_available())"
+# expect e.g.  2.5.1+cu121 12.1 True
+```
+
+If it prints `False` while `nvidia-smi` shows a GPU, you have a Torch/CUDA
+mismatch — reinstall the cu121 line above.
+
+**fsspec compatibility fix** — if `datasets` raises an fsspec error on import:
+
+```bash
+python -m pip install "fsspec==2024.6.1"
+```
 
 ## 10. Prepare the dataset
 
@@ -95,13 +126,17 @@ and sentencepiece.
 python training/prepare_dataset.py --include-ingested --out data/processed
 ```
 
-Expected: `400 -> train.jsonl`, `100 -> eval.jsonl` (500 total).
+Expected: `445 -> train.jsonl`, `111 -> eval.jsonl` (556 total, current corpus).
 
 ## 11. Run preflight
 
 ```bash
 python training/preflight_train.py
 ```
+
+Preflight now also detects a **Torch/CUDA mismatch**: if `nvidia-smi` sees the
+GPU but `torch.cuda` cannot, it prints `RESULT: GPU PRESENT BUT UNUSABLE` with the
+exact `torch==2.5.1+cu121` reinstall command, and exits `2` before wasting GPU time.
 
 On a correctly configured GPU pod every row should read `OK` and it prints
 `RESULT: READY` (exit `0`). If it prints `NO GPU` / exits `2`, your pod is not

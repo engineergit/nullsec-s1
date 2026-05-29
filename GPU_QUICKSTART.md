@@ -82,15 +82,30 @@ python -m pip install --upgrade pip setuptools wheel
 
 ---
 
-## 6. Install the training dependencies
+## 6. Install the training dependencies (known-good CUDA 12.1 stack)
 
-The base install (`.[dev]`) has no GPU stack. For training you need the
-`train` extra — torch, transformers, peft, trl, bitsandbytes, datasets,
-accelerate:
+The base install (`.[dev]`) has no GPU stack. For training, install the **pinned
+CUDA 12.1 torch build first** (the build that completed RC1 on RunPod A100 80GB),
+then the rest of the stack so nothing replaces torch:
 
 ```bash
-python -m pip install -e ".[train]"
+python -m pip install -e ".[dev]"
+python -m pip install torch==2.5.1+cu121 --index-url https://download.pytorch.org/whl/cu121
+python -m pip install -r requirements-train-cu121.txt
 ```
+
+Then **verify CUDA is usable**:
+
+```bash
+python -c "import torch; print(torch.__version__, torch.version.cuda, torch.cuda.is_available())"
+# expect e.g.  2.5.1+cu121 12.1 True
+```
+
+> **A CUDA 13 / Torch 2.12 wheel failed on the RunPod driver during RC1.** If
+> `torch.cuda.is_available()` is `False` while `nvidia-smi` shows a GPU, that is a
+> Torch/CUDA mismatch — reinstall the cu121 line above. `preflight_train.py`
+> detects this and prints the exact fix. If `datasets` raises an fsspec error,
+> pin `pip install "fsspec==2024.6.1"`.
 
 If `bitsandbytes` complains, make sure the box actually has an NVIDIA driver and
 CUDA runtime (`nvidia-smi` should print your GPU). Most rented GPU images ship
@@ -107,7 +122,7 @@ is validated through the same alignment + safety layers used at serving time:
 python training/prepare_dataset.py --include-ingested --out data/processed
 ```
 
-You should see `400 -> train.jsonl` and `100 -> eval.jsonl` (500 total).
+You should see `445 -> train.jsonl` and `111 -> eval.jsonl` (556 total, current corpus).
 
 ---
 
@@ -203,7 +218,7 @@ anymore.
 
 A complete run produces:
 
-- [ ] `data/processed/train.jsonl` and `eval.jsonl` (400 / 100 records)
+- [ ] `data/processed/train.jsonl` and `eval.jsonl` (445 / 111 records, current corpus)
 - [ ] `outputs/nullsec-s1-qlora/adapter_config.json` + `adapter_model.safetensors`
 - [ ] tokenizer files alongside the adapter
 - [ ] `benchmarks/reports/SUITE.json` with `run_mode: "model"` and non-empty results

@@ -1,6 +1,16 @@
 # --- training + inference with the model (GPU) ---
+#
+# This is the CUDA-agnostic train stack. On RunPod (and any box where the host
+# CUDA driver matters) install the PINNED, known-good build FIRST so nothing here
+# pulls a mismatched torch:
+#
+#   pip install -e ".[dev]"
+#   pip install torch==2.5.1+cu121 --index-url https://download.pytorch.org/whl/cu121
+#   pip install -r requirements-train.txt      # torch>=2.3 is already satisfied -> not replaced
+#
+# Or use requirements-train-cu121.txt, which pins torch to the cu121 build.
 -r requirements.txt
-torch>=2.3
+torch>=2.3            # already-installed torch==2.5.1+cu121 satisfies this; not overridden
 transformers>=4.44
 peft>=0.11
 trl>=0.9

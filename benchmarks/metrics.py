@@ -240,6 +240,69 @@ def patch_correctness(cases, verdicts) -> dict:
     }
 
 
+def per_category_recall(cases, verdicts) -> dict:
+    """Detection recall per taxonomy category, over cases that expect it.
+
+    For each category, recall = (cases where the category was expected AND
+    detected) / (cases where it was expected). Surfaces exactly which categories
+    the model is weak on, which OWASP coverage alone does not show.
+    """
+    expected_by_cat: dict[str, int] = {}
+    detected_by_cat: dict[str, int] = {}
+    for c in cases:
+        v, ok = verdicts.get(c["id"], (None, False))
+        detected = {f.category for f in v.findings} if (ok and v) else set()
+        for cat in c.get("expected_categories", []):
+            expected_by_cat[cat] = expected_by_cat.get(cat, 0) + 1
+            if cat in detected:
+                detected_by_cat[cat] = detected_by_cat.get(cat, 0) + 1
+    per = {
+        cat: {
+            "expected": n,
+            "detected": detected_by_cat.get(cat, 0),
+            "recall": round(detected_by_cat.get(cat, 0) / n, 4) if n else None,
+        }
+        for cat, n in sorted(expected_by_cat.items())
+    }
+    weak = sorted(cat for cat, s in per.items() if (s["recall"] or 0) < 1.0)
+    return {
+        "categories_evaluated": len(per),
+        "per_category": per,
+        "categories_below_full_recall": weak,
+    }
+
+
+def failed_case_ids(cases, verdicts) -> dict:
+    """List case ids the model got wrong, with the reason, for triage.
+
+    A case fails if: it produced no alignable output, missed an expected
+    category, hallucinated a category on a clean case, or the Safety-Layer
+    production_ready verdict disagrees with ground truth.
+    """
+    failures: list[dict] = []
+    for c in cases:
+        v, ok = verdicts.get(c["id"], (None, False))
+        expected = set(c.get("expected_categories", []))
+        reasons: list[str] = []
+        if not ok or v is None:
+            reasons.append("no_alignable_output")
+            failures.append({"id": c["id"], "reasons": reasons})
+            continue
+        detected = {f.category for f in v.findings}
+        missed = expected - detected
+        if missed:
+            reasons.append(f"missed:{sorted(missed)}")
+        if not expected and detected:
+            reasons.append(f"hallucinated:{sorted(detected)}")
+        if v.production_ready != c["expected_production_ready"]:
+            reasons.append(
+                f"verdict:{v.production_ready}!=expected:{c['expected_production_ready']}"
+            )
+        if reasons:
+            failures.append({"id": c["id"], "reasons": reasons})
+    return {"failed_count": len(failures), "failed": failures}
+
+
 def secure_generation_score(cases, verdicts) -> dict:
     """Whether the secure code Nullsec-1 generates (its patches) is free of known
     insecure signal tokens from the taxonomy. A proxy for not introducing new

@@ -1,50 +1,220 @@
 {
-  "version": "1.0.0",
-  "description": "Labeled security benchmark for Nullsec-1. expected_categories is the set Nullsec-1 should detect; expected_production_ready is the Safety-Layer-enforced ground truth. owasp tags map web cases to OWASP Top 10 2021 / OWASP LLM Top 10 2025 where applicable.",
+  "version": "1.1.0",
+  "description": "Labeled security benchmark for Nullsec-1 (RC2). expected_categories is the set Nullsec-1 should detect; expected_production_ready is the Safety-Layer-enforced ground truth. Covers all 16 taxonomy categories with unsafe, clean, and mixed multi-vulnerability cases (MCP/tool abuse, Web3/wallet, Next.js/Supabase/Vercel/Stripe/Auth). owasp tags map web cases to OWASP Top 10 2021 / OWASP LLM Top 10 2025 where applicable. Authored to be distinct from the training corpus.",
   "cases": [
     {
-      "id": "sqli-basic",
-      "filename": "q.py",
-      "lang": "python",
-      "code": "def f(c,u):\n  c.execute('SELECT * FROM t WHERE n=\\'%s\\'' % u)\n",
-      "expected_categories": [
-        "SQL_INJECTION"
-      ],
-      "expected_min_severity": "HIGH",
-      "expected_production_ready": false,
-      "owasp": "A03:2021-Injection"
-    },
-    {
-      "id": "secret-aws",
+      "id": "secret-aws-key",
       "filename": "s.py",
       "lang": "python",
       "code": "AWS_KEY='AKIAIOSFODNN7EXAMPLE'\nAWS_SECRET='wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'\n",
       "expected_categories": [
         "EXPOSED_SECRET"
       ],
-      "expected_min_severity": "HIGH",
+      "expected_min_severity": "CRITICAL",
       "expected_production_ready": false,
       "owasp": "A07:2021-Identification and Authentication Failures"
     },
     {
-      "id": "cmd-inject",
-      "filename": "c.js",
-      "lang": "javascript",
-      "code": "app.get('/p',(q,r)=>{require('child_process').exec('ping '+q.query.host)})\n",
+      "id": "secret-supabase-service-role",
+      "filename": "lib.ts",
+      "lang": "typescript",
+      "code": "export const admin = createClient(URL, 'eyJhbGciOiJIUzI1NiJ9.EXAMPLE.service_role')\n",
       "expected_categories": [
-        "COMMAND_INJECTION"
+        "EXPOSED_SECRET"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false,
+      "owasp": "A05:2021-Security Misconfiguration"
+    },
+    {
+      "id": "secret-stripe-live-client",
+      "filename": "pay.js",
+      "lang": "javascript",
+      "code": "const STRIPE='sk_live_EXAMPLEnotreal'\nexport const charge=(a)=>fetch('https://api.stripe.com/v1/charges',{headers:{Authorization:`Bearer ${STRIPE}`}})\n",
+      "expected_categories": [
+        "EXPOSED_SECRET"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false
+    },
+    {
+      "id": "secret-openai-hardcoded",
+      "filename": "llm.py",
+      "lang": "python",
+      "code": "import openai\nopenai.api_key='sk-EXAMPLE-not-a-real-key'\n",
+      "expected_categories": [
+        "EXPOSED_SECRET"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false
+    },
+    {
+      "id": "secret-gh-token",
+      "filename": "ci.yml",
+      "lang": "yaml",
+      "code": "env:\n  GH_TOKEN: ghp_EXAMPLEnotarealtokenvalue000000000000\n",
+      "expected_categories": [
+        "EXPOSED_SECRET"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false
+    },
+    {
+      "id": "secret-private-key-inline",
+      "filename": "config.py",
+      "lang": "python",
+      "code": "PRIVATE_KEY='-----BEGIN PRIVATE KEY-----\\nMIIEv...EXAMPLE\\n-----END PRIVATE KEY-----'\n",
+      "expected_categories": [
+        "EXPOSED_SECRET"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false
+    },
+    {
+      "id": "auth-jwt-none",
+      "filename": "auth.py",
+      "lang": "python",
+      "code": "jwt.decode(token, key, algorithms=['HS256','none'])\n",
+      "expected_categories": [
+        "BROKEN_AUTH"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false,
+      "owasp": "A07:2021-Identification and Authentication Failures"
+    },
+    {
+      "id": "auth-idor-no-ownership",
+      "filename": "routes.py",
+      "lang": "python",
+      "code": "@app.get('/api/orders/{oid}')\ndef get(oid):\n  return db.order(oid)  # no ownership check\n",
+      "expected_categories": [
+        "BROKEN_AUTH"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false,
+      "owasp": "A01:2021-Broken Access Control"
+    },
+    {
+      "id": "auth-next-action-no-session",
+      "filename": "actions.ts",
+      "lang": "typescript",
+      "code": "'use server'\nexport async function deleteUser(id){ await db.user.delete({where:{id}}) }\n",
+      "expected_categories": [
+        "BROKEN_AUTH"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false,
+      "owasp": "A01:2021-Broken Access Control"
+    },
+    {
+      "id": "auth-stripe-webhook-no-sig",
+      "filename": "webhook.js",
+      "lang": "javascript",
+      "code": "app.post('/webhook',(req,res)=>{const e=JSON.parse(req.body);fulfill(e);res.send('ok')})\n",
+      "expected_categories": [
+        "BROKEN_AUTH"
       ],
       "expected_min_severity": "HIGH",
       "expected_production_ready": false,
-      "owasp": "A03:2021-Injection"
+      "owasp": "A01:2021-Broken Access Control"
     },
     {
-      "id": "no-auth-admin",
-      "filename": "a.py",
-      "lang": "python",
-      "code": "@app.post('/admin/wipe')\ndef wipe():\n  db.wipe()\n  return 'ok'\n",
+      "id": "auth-supabase-no-email-confirm",
+      "filename": "signup.ts",
+      "lang": "typescript",
+      "code": "const {data}=await supabase.auth.signUp({email,password})\ngrantAccess(data.user)  // ignores email confirmation\n",
       "expected_categories": [
-        "BROKEN_AUTH",
+        "BROKEN_AUTH"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false
+    },
+    {
+      "id": "auth-cookie-not-httponly",
+      "filename": "session.js",
+      "lang": "javascript",
+      "code": "res.cookie('session', sid, { httpOnly:false, secure:false })\n",
+      "expected_categories": [
+        "BROKEN_AUTH"
+      ],
+      "expected_min_severity": "MEDIUM",
+      "expected_production_ready": false,
+      "owasp": "A07:2021-Identification and Authentication Failures"
+    },
+    {
+      "id": "auth-oauth-open-redirect",
+      "filename": "oauth.js",
+      "lang": "javascript",
+      "code": "app.get('/cb',(req,res)=>res.redirect(req.query.next))  // no state, no allowlist\n",
+      "expected_categories": [
+        "BROKEN_AUTH"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false,
+      "owasp": "A01:2021-Broken Access Control"
+    },
+    {
+      "id": "rate-login-none",
+      "filename": "login.py",
+      "lang": "python",
+      "code": "@app.post('/login')\ndef login(u,p):\n  return check(u,p)  # no throttle\n",
+      "expected_categories": [
+        "MISSING_RATE_LIMIT"
+      ],
+      "expected_min_severity": "MEDIUM",
+      "expected_production_ready": false,
+      "owasp": "A07:2021-Identification and Authentication Failures"
+    },
+    {
+      "id": "rate-otp-no-cap",
+      "filename": "otp.js",
+      "lang": "javascript",
+      "code": "app.post('/verify-otp',(q,r)=>{ if(q.body.code===otp) grant() })\n",
+      "expected_categories": [
+        "MISSING_RATE_LIMIT"
+      ],
+      "expected_min_severity": "MEDIUM",
+      "expected_production_ready": false
+    },
+    {
+      "id": "rate-reset-unbounded",
+      "filename": "reset.py",
+      "lang": "python",
+      "code": "@app.post('/reset')\ndef reset(email):\n  send_reset(email)  # unlimited\n",
+      "expected_categories": [
+        "MISSING_RATE_LIMIT"
+      ],
+      "expected_min_severity": "MEDIUM",
+      "expected_production_ready": false
+    },
+    {
+      "id": "rate-llm-endpoint",
+      "filename": "chat.py",
+      "lang": "python",
+      "code": "@app.post('/chat')\ndef chat(msg):\n  return openai_call(msg)  # no quota\n",
+      "expected_categories": [
+        "MISSING_RATE_LIMIT"
+      ],
+      "expected_min_severity": "MEDIUM",
+      "expected_production_ready": false
+    },
+    {
+      "id": "rate-agent-loop-no-budget",
+      "filename": "loop.py",
+      "lang": "python",
+      "code": "while True:\n  step=agent.next()\n  tool(step)  # no budget cap\n",
+      "expected_categories": [
+        "MISSING_RATE_LIMIT"
+      ],
+      "expected_min_severity": "MEDIUM",
+      "expected_production_ready": false
+    },
+    {
+      "id": "admin-wipe-no-role",
+      "filename": "admin.py",
+      "lang": "python",
+      "code": "@app.post('/admin/wipe')\ndef wipe():\n  db.wipe()\n",
+      "expected_categories": [
         "UNSAFE_ADMIN_ROUTE"
       ],
       "expected_min_severity": "HIGH",
@@ -52,14 +222,415 @@
       "owasp": "A01:2021-Broken Access Control"
     },
     {
-      "id": "prompt-inject",
+      "id": "admin-vercel-cron-no-secret",
+      "filename": "route.ts",
+      "lang": "typescript",
+      "code": "export async function GET(){ await purgeAll(); return Response.json({ok:true}) }  // /api/cron no secret\n",
+      "expected_categories": [
+        "UNSAFE_ADMIN_ROUTE"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false
+    },
+    {
+      "id": "admin-next-api-no-check",
+      "filename": "route.ts",
+      "lang": "typescript",
+      "code": "export async function POST(req){ const {role}=await req.json(); await setRole(role) }\n",
+      "expected_categories": [
+        "UNSAFE_ADMIN_ROUTE"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false,
+      "owasp": "A01:2021-Broken Access Control"
+    },
+    {
+      "id": "admin-client-flag",
+      "filename": "ui.js",
+      "lang": "javascript",
+      "code": "if(window.__ADMIN__) showAdminPanel()  // client-side gate only\n",
+      "expected_categories": [
+        "UNSAFE_ADMIN_ROUTE"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false
+    },
+    {
+      "id": "admin-debug-route",
+      "filename": "debug.py",
+      "lang": "python",
+      "code": "@app.get('/debug/run')\ndef run(cmd):\n  return eval(cmd)\n",
+      "expected_categories": [
+        "UNSAFE_ADMIN_ROUTE",
+        "COMMAND_INJECTION"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false,
+      "owasp": "A01:2021-Broken Access Control"
+    },
+    {
+      "id": "sqli-fstring",
+      "filename": "q.py",
+      "lang": "python",
+      "code": "c.execute(f\"SELECT * FROM t WHERE n='{u}'\")\n",
+      "expected_categories": [
+        "SQL_INJECTION"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false,
+      "owasp": "A03:2021-Injection"
+    },
+    {
+      "id": "sqli-node-concat",
+      "filename": "u.js",
+      "lang": "javascript",
+      "code": "db.query('SELECT * FROM u WHERE id='+req.params.id)\n",
+      "expected_categories": [
+        "SQL_INJECTION"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false,
+      "owasp": "A03:2021-Injection"
+    },
+    {
+      "id": "sqli-drizzle-raw",
+      "filename": "d.ts",
+      "lang": "typescript",
+      "code": "db.execute(sql.raw('SELECT * FROM t WHERE name='+name))\n",
+      "expected_categories": [
+        "SQL_INJECTION"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false,
+      "owasp": "A03:2021-Injection"
+    },
+    {
+      "id": "sqli-php",
+      "filename": "u.php",
+      "lang": "php",
+      "code": "$r=mysqli_query($c,\"SELECT * FROM u WHERE n='$_GET[n]'\");\n",
+      "expected_categories": [
+        "SQL_INJECTION"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false,
+      "owasp": "A03:2021-Injection"
+    },
+    {
+      "id": "sqli-supabase-or-raw",
+      "filename": "search.ts",
+      "lang": "typescript",
+      "code": "supabase.from('p').select().or(`name.eq.${q}`)\n",
+      "expected_categories": [
+        "SQL_INJECTION"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false
+    },
+    {
+      "id": "sqli-java-statement",
+      "filename": "U.java",
+      "lang": "java",
+      "code": "st.executeQuery(\"SELECT * FROM u WHERE n='\"+name+\"'\");\n",
+      "expected_categories": [
+        "SQL_INJECTION"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false,
+      "owasp": "A03:2021-Injection"
+    },
+    {
+      "id": "xss-dangerously",
+      "filename": "Profile.jsx",
+      "lang": "javascript",
+      "code": "<div dangerouslySetInnerHTML={{__html:userBio}} />\n",
+      "expected_categories": [
+        "XSS"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false,
+      "owasp": "A03:2021-Injection"
+    },
+    {
+      "id": "xss-innerhtml",
+      "filename": "app.js",
+      "lang": "javascript",
+      "code": "el.innerHTML = location.hash.slice(1)\n",
+      "expected_categories": [
+        "XSS"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false,
+      "owasp": "A03:2021-Injection"
+    },
+    {
+      "id": "xss-vhtml",
+      "filename": "C.vue",
+      "lang": "javascript",
+      "code": "<span v-html=\"comment\"></span>\n",
+      "expected_categories": [
+        "XSS"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false,
+      "owasp": "A03:2021-Injection"
+    },
+    {
+      "id": "xss-express-unescaped",
+      "filename": "s.js",
+      "lang": "javascript",
+      "code": "res.send('<h1>'+req.query.q+'</h1>')\n",
+      "expected_categories": [
+        "XSS"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false,
+      "owasp": "A03:2021-Injection"
+    },
+    {
+      "id": "xss-ens-name",
+      "filename": "w3.js",
+      "lang": "javascript",
+      "code": "nameEl.innerHTML = await resolveENS(addr)\n",
+      "expected_categories": [
+        "XSS"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false
+    },
+    {
+      "id": "ssrf-requests",
+      "filename": "f.py",
+      "lang": "python",
+      "code": "@app.get('/fetch')\ndef f(url):\n  return requests.get(url).text\n",
+      "expected_categories": [
+        "SSRF"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false,
+      "owasp": "A10:2021-Server-Side Request Forgery"
+    },
+    {
+      "id": "ssrf-node-fetch",
+      "filename": "p.js",
+      "lang": "javascript",
+      "code": "app.post('/proxy',(q,r)=>fetch(q.body.url).then(x=>x.text()).then(r.send))\n",
+      "expected_categories": [
+        "SSRF"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false,
+      "owasp": "A10:2021-Server-Side Request Forgery"
+    },
+    {
+      "id": "ssrf-image-proxy",
+      "filename": "img.py",
+      "lang": "python",
+      "code": "img=requests.get(request.args['src']);return Response(img.content)\n",
+      "expected_categories": [
+        "SSRF"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false,
+      "owasp": "A10:2021-Server-Side Request Forgery"
+    },
+    {
+      "id": "ssrf-webhook-url",
+      "filename": "hook.py",
+      "lang": "python",
+      "code": "requests.post(user_supplied_webhook, json=payload)\n",
+      "expected_categories": [
+        "SSRF"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false,
+      "owasp": "A10:2021-Server-Side Request Forgery"
+    },
+    {
+      "id": "ssrf-rpc-proxy",
+      "filename": "rpc.ts",
+      "lang": "typescript",
+      "code": "app.post('/rpc',(q,r)=>fetch(q.body.rpcUrl,{method:'POST',body:q.body.data}))\n",
+      "expected_categories": [
+        "SSRF"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false
+    },
+    {
+      "id": "cmdi-ossystem",
+      "filename": "c.py",
+      "lang": "python",
+      "code": "os.system('convert '+fname+' out.png')\n",
+      "expected_categories": [
+        "COMMAND_INJECTION"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false,
+      "owasp": "A03:2021-Injection"
+    },
+    {
+      "id": "cmdi-childprocess",
+      "filename": "c.js",
+      "lang": "javascript",
+      "code": "exec('ping '+req.query.host)\n",
+      "expected_categories": [
+        "COMMAND_INJECTION"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false,
+      "owasp": "A03:2021-Injection"
+    },
+    {
+      "id": "cmdi-subprocess-shell",
+      "filename": "x.py",
+      "lang": "python",
+      "code": "subprocess.run('tar -xf '+name, shell=True)\n",
+      "expected_categories": [
+        "COMMAND_INJECTION"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false,
+      "owasp": "A03:2021-Injection"
+    },
+    {
+      "id": "cmdi-eval",
+      "filename": "calc.py",
+      "lang": "python",
+      "code": "result = eval(request.args['expr'])\n",
+      "expected_categories": [
+        "COMMAND_INJECTION"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false,
+      "owasp": "A03:2021-Injection"
+    },
+    {
+      "id": "cmdi-pickle",
+      "filename": "de.py",
+      "lang": "python",
+      "code": "obj = pickle.loads(request.data)  # untrusted deserialization\n",
+      "expected_categories": [
+        "COMMAND_INJECTION"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false,
+      "owasp": "A08:2021-Software and Data Integrity Failures"
+    },
+    {
+      "id": "upload-flask-filename",
+      "filename": "up.py",
+      "lang": "python",
+      "code": "f=request.files['f'];f.save(os.path.join(UP,f.filename))\n",
+      "expected_categories": [
+        "UNSAFE_FILE_UPLOAD"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false,
+      "owasp": "A01:2021-Broken Access Control"
+    },
+    {
+      "id": "upload-path-traversal",
+      "filename": "rd.py",
+      "lang": "python",
+      "code": "open(os.path.join(BASE, request.args['path'])).read()\n",
+      "expected_categories": [
+        "UNSAFE_FILE_UPLOAD"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false,
+      "owasp": "A01:2021-Broken Access Control"
+    },
+    {
+      "id": "upload-multer-novalidate",
+      "filename": "u.js",
+      "lang": "javascript",
+      "code": "app.post('/u',upload.single('f'),(q,r)=>r.send(q.file.path))\n",
+      "expected_categories": [
+        "UNSAFE_FILE_UPLOAD"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false
+    },
+    {
+      "id": "upload-firebase-open-rules",
+      "filename": "storage.rules",
+      "lang": "json",
+      "code": "{\"rules\":{\".read\":true,\".write\":true}}\n",
+      "expected_categories": [
+        "UNSAFE_FILE_UPLOAD"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false
+    },
+    {
+      "id": "upload-ext-preserved",
+      "filename": "save.js",
+      "lang": "javascript",
+      "code": "fs.writeFileSync('./public/'+file.originalname, file.buffer)\n",
+      "expected_categories": [
+        "UNSAFE_FILE_UPLOAD"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false
+    },
+    {
+      "id": "pi-system-plus-web",
       "filename": "p.py",
       "lang": "python",
       "code": "p = SYSTEM + scraped_web_text + user\nreturn llm(p)\n",
       "expected_categories": [
         "PROMPT_INJECTION"
       ],
-      "expected_min_severity": "MEDIUM",
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false,
+      "owasp": "LLM01:2025-Prompt Injection"
+    },
+    {
+      "id": "pi-tool-output",
+      "filename": "agent.py",
+      "lang": "python",
+      "code": "messages.append({'role':'user','content':tool_result})\nllm(messages)\n",
+      "expected_categories": [
+        "PROMPT_INJECTION"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false,
+      "owasp": "LLM01:2025-Prompt Injection"
+    },
+    {
+      "id": "pi-resume-hidden",
+      "filename": "hr.py",
+      "lang": "python",
+      "code": "decision = llm('Screen this resume:\\n'+resume_text)\n",
+      "expected_categories": [
+        "PROMPT_INJECTION"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false,
+      "owasp": "LLM01:2025-Prompt Injection"
+    },
+    {
+      "id": "pi-rag-untrusted",
+      "filename": "rag.py",
+      "lang": "python",
+      "code": "ctx=retrieve(q)\nllm(SYSTEM + ctx + q)  # ctx is attacker-editable wiki\n",
+      "expected_categories": [
+        "PROMPT_INJECTION"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false,
+      "owasp": "LLM01:2025-Prompt Injection"
+    },
+    {
+      "id": "pi-email-agent",
+      "filename": "mail.py",
+      "lang": "python",
+      "code": "act(llm('Summarize and act on this email: '+email_body))\n",
+      "expected_categories": [
+        "PROMPT_INJECTION"
+      ],
+      "expected_min_severity": "HIGH",
       "expected_production_ready": false,
       "owasp": "LLM01:2025-Prompt Injection"
     },
@@ -72,27 +643,239 @@
         "MCP_TOOL_ABUSE",
         "COMMAND_INJECTION"
       ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false,
+      "owasp": "LLM06:2025-Excessive Agency"
+    },
+    {
+      "id": "mcp-arbitrary-read",
+      "filename": "m.py",
+      "lang": "python",
+      "code": "@mcp.tool()\ndef read(path):\n  return open(path).read()  # no containment\n",
+      "expected_categories": [
+        "MCP_TOOL_ABUSE"
+      ],
       "expected_min_severity": "HIGH",
       "expected_production_ready": false,
       "owasp": "LLM06:2025-Excessive Agency"
     },
     {
-      "id": "ssrf",
-      "filename": "f.py",
+      "id": "mcp-write-sql",
+      "filename": "m.py",
       "lang": "python",
-      "code": "@app.get('/fetch')\ndef fetch(url):\n  return requests.get(url).text\n",
+      "code": "@mcp.tool()\ndef run_sql(q):\n  return prod_db.execute(q)\n",
       "expected_categories": [
-        "SSRF"
+        "MCP_TOOL_ABUSE"
       ],
-      "expected_min_severity": "MEDIUM",
+      "expected_min_severity": "HIGH",
       "expected_production_ready": false,
-      "owasp": "A10:2021-Server-Side Request Forgery"
+      "owasp": "LLM06:2025-Excessive Agency"
     },
     {
-      "id": "reentrancy",
-      "filename": "v.sol",
+      "id": "mcp-outbound-post",
+      "filename": "m.py",
+      "lang": "python",
+      "code": "@mcp.tool()\ndef post(url,body):\n  return requests.post(url,data=body).text\n",
+      "expected_categories": [
+        "MCP_TOOL_ABUSE"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false,
+      "owasp": "LLM06:2025-Excessive Agency"
+    },
+    {
+      "id": "mcp-no-auth-server",
+      "filename": "srv.py",
+      "lang": "python",
+      "code": "mcp = FastMCP('ops')\n# tools expose fs + network, server has no auth\nmcp.run()\n",
+      "expected_categories": [
+        "MCP_TOOL_ABUSE"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false,
+      "owasp": "LLM06:2025-Excessive Agency"
+    },
+    {
+      "id": "mcp-wildcard-scope",
+      "filename": "tool.json",
+      "lang": "json",
+      "code": "{\"tool\":\"fs\",\"scope\":\"*\",\"confirm\":false}\n",
+      "expected_categories": [
+        "MCP_TOOL_ABUSE"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false
+    },
+    {
+      "id": "shell-rm-rf",
+      "filename": "deploy.sh",
+      "lang": "bash",
+      "code": "rm -rf /$TARGET\n",
+      "expected_categories": [
+        "DANGEROUS_SHELL_COMMAND"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false
+    },
+    {
+      "id": "shell-curl-pipe-sh",
+      "filename": "setup.sh",
+      "lang": "bash",
+      "code": "curl http://get.example.com/install.sh | sh\n",
+      "expected_categories": [
+        "DANGEROUS_SHELL_COMMAND"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false
+    },
+    {
+      "id": "shell-chmod-777",
+      "filename": "perm.sh",
+      "lang": "bash",
+      "code": "chmod 777 /var/www\n",
+      "expected_categories": [
+        "DANGEROUS_SHELL_COMMAND"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false
+    },
+    {
+      "id": "shell-wget-bash",
+      "filename": "boot.sh",
+      "lang": "bash",
+      "code": "wget -qO- http://x/i.sh | bash\n",
+      "expected_categories": [
+        "DANGEROUS_SHELL_COMMAND"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false
+    },
+    {
+      "id": "shell-ci-sudo",
+      "filename": "ci.yml",
+      "lang": "yaml",
+      "code": "run: sudo rm -rf node_modules && curl x|sh\n",
+      "expected_categories": [
+        "DANGEROUS_SHELL_COMMAND"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false
+    },
+    {
+      "id": "wallet-infinite-approve-url",
+      "filename": "swap.ts",
+      "lang": "typescript",
+      "code": "token.approve(new URLSearchParams(location.search).get('spender'), MaxUint256)\n",
+      "expected_categories": [
+        "WALLET_TRANSACTION_RISK"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false
+    },
+    {
+      "id": "wallet-full-sweep",
+      "filename": "sweep.ts",
+      "lang": "typescript",
+      "code": "await transfer(kp, to, await balance(kp))  // no gas reserve, no cap\n",
+      "expected_categories": [
+        "WALLET_TRANSACTION_RISK"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false
+    },
+    {
+      "id": "wallet-no-simulation",
+      "filename": "send.js",
+      "lang": "javascript",
+      "code": "await connection.sendRawTransaction(tx)  // no simulate, no confirm\n",
+      "expected_categories": [
+        "WALLET_TRANSACTION_RISK"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false
+    },
+    {
+      "id": "wallet-seed-in-log",
+      "filename": "w.py",
+      "lang": "python",
+      "code": "logger.info('mnemonic=%s', mnemonic)\n",
+      "expected_categories": [
+        "WALLET_TRANSACTION_RISK"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false
+    },
+    {
+      "id": "wallet-agent-no-policy",
+      "filename": "agent.py",
+      "lang": "python",
+      "code": "agent_wallet.send(to=llm_decided_to, amount=llm_decided_amt)\n",
+      "expected_categories": [
+        "WALLET_TRANSACTION_RISK"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false
+    },
+    {
+      "id": "wallet-hidden-spender",
+      "filename": "ui.ts",
+      "lang": "typescript",
+      "code": "await erc20.approve(router, amount)  // UI shows 0, calldata approves max\n",
+      "expected_categories": [
+        "WALLET_TRANSACTION_RISK"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false
+    },
+    {
+      "id": "sc-reentrancy",
+      "filename": "V.sol",
       "lang": "solidity",
-      "code": "function w(uint a) external {\n  msg.sender.call{value:a}('');\n  bal[msg.sender]-=a;\n}\n",
+      "code": "function w(uint a) external { msg.sender.call{value:a}(''); bal[msg.sender]-=a; }\n",
+      "expected_categories": [
+        "SMART_CONTRACT_RISK"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false
+    },
+    {
+      "id": "sc-txorigin",
+      "filename": "A.sol",
+      "lang": "solidity",
+      "code": "require(tx.origin == owner);\n",
+      "expected_categories": [
+        "SMART_CONTRACT_RISK"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false
+    },
+    {
+      "id": "sc-delegatecall",
+      "filename": "P.sol",
+      "lang": "solidity",
+      "code": "(bool ok,) = impl.delegatecall(msg.data);\n",
+      "expected_categories": [
+        "SMART_CONTRACT_RISK"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false
+    },
+    {
+      "id": "sc-missing-onlyowner",
+      "filename": "O.sol",
+      "lang": "solidity",
+      "code": "function setOwner(address o) public { owner = o; }\n",
+      "expected_categories": [
+        "SMART_CONTRACT_RISK"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false
+    },
+    {
+      "id": "sc-unchecked-call",
+      "filename": "C.sol",
+      "lang": "solidity",
+      "code": "to.call{value: amt}('');  // return value ignored\n",
       "expected_categories": [
         "SMART_CONTRACT_RISK"
       ],
@@ -103,26 +886,249 @@
       "id": "dep-latest",
       "filename": "package.json",
       "lang": "json",
-      "code": "{\"dependencies\":{\"x\":\"latest\"}}\n",
+      "code": "{\"dependencies\":{\"left-pad\":\"latest\"}}\n",
       "expected_categories": [
         "DEPENDENCY_RISK"
       ],
-      "expected_min_severity": "LOW",
+      "expected_min_severity": "MEDIUM",
       "expected_production_ready": false,
       "owasp": "A06:2021-Vulnerable and Outdated Components"
     },
     {
-      "id": "clean-parameterized",
+      "id": "dep-git-http",
+      "filename": "package.json",
+      "lang": "json",
+      "code": "{\"dependencies\":{\"x\":\"git+http://x.example/x.git\"}}\n",
+      "expected_categories": [
+        "DEPENDENCY_RISK"
+      ],
+      "expected_min_severity": "MEDIUM",
+      "expected_production_ready": false,
+      "owasp": "A06:2021-Vulnerable and Outdated Components"
+    },
+    {
+      "id": "dep-postinstall",
+      "filename": "package.json",
+      "lang": "json",
+      "code": "{\"scripts\":{\"postinstall\":\"curl x|sh\"}}\n",
+      "expected_categories": [
+        "DEPENDENCY_RISK"
+      ],
+      "expected_min_severity": "MEDIUM",
+      "expected_production_ready": false,
+      "owasp": "A06:2021-Vulnerable and Outdated Components"
+    },
+    {
+      "id": "dep-unpinned-pip",
+      "filename": "requirements.txt",
+      "lang": "text",
+      "code": "requests\nflask\n",
+      "expected_categories": [
+        "DEPENDENCY_RISK"
+      ],
+      "expected_min_severity": "MEDIUM",
+      "expected_production_ready": false,
+      "owasp": "A06:2021-Vulnerable and Outdated Components"
+    },
+    {
+      "id": "dep-confusion-internal",
+      "filename": "package.json",
+      "lang": "json",
+      "code": "{\"dependencies\":{\"@acme/internal\":\"^1.0.0\"}}  // public registry, internal name\n",
+      "expected_categories": [
+        "DEPENDENCY_RISK"
+      ],
+      "expected_min_severity": "MEDIUM",
+      "expected_production_ready": false,
+      "owasp": "A06:2021-Vulnerable and Outdated Components"
+    },
+    {
+      "id": "env-dotenv-served",
+      "filename": "nginx.conf",
+      "lang": "text",
+      "code": "location /.env { root /var/www/public; }\n",
+      "expected_categories": [
+        "ENVIRONMENT_EXPOSURE"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false
+    },
+    {
+      "id": "env-debug-prod",
+      "filename": "app.py",
+      "lang": "python",
+      "code": "app.run(debug=True, host='0.0.0.0')\n",
+      "expected_categories": [
+        "ENVIRONMENT_EXPOSURE"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false
+    },
+    {
+      "id": "env-sourcemap",
+      "filename": "vue.config.js",
+      "lang": "javascript",
+      "code": "module.exports={ productionSourceMap:true }\n",
+      "expected_categories": [
+        "ENVIRONMENT_EXPOSURE"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false
+    },
+    {
+      "id": "env-api-route",
+      "filename": "route.ts",
+      "lang": "typescript",
+      "code": "export async function GET(){ return Response.json(process.env) }\n",
+      "expected_categories": [
+        "ENVIRONMENT_EXPOSURE"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false
+    },
+    {
+      "id": "env-public-bucket",
+      "filename": "s3.json",
+      "lang": "json",
+      "code": "{\"PublicAccessBlock\":false,\"ACL\":\"public-read-write\"}\n",
+      "expected_categories": [
+        "ENVIRONMENT_EXPOSURE"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false
+    },
+    {
+      "id": "mix-next-secret-and-noauth",
+      "filename": "route.ts",
+      "lang": "typescript",
+      "code": "const KEY='sk_live_EXAMPLE'\nexport async function POST(req){ await chargeAll() }  // no auth + secret\n",
+      "expected_categories": [
+        "EXPOSED_SECRET",
+        "BROKEN_AUTH"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false
+    },
+    {
+      "id": "mix-upload-traversal-noauth",
+      "filename": "up.py",
+      "lang": "python",
+      "code": "@app.post('/upload')\ndef up():\n  f=request.files['f']; open('/data/'+f.filename,'wb').write(f.read())\n",
+      "expected_categories": [
+        "UNSAFE_FILE_UPLOAD",
+        "BROKEN_AUTH"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false
+    },
+    {
+      "id": "mix-web3-xss-ssrf",
+      "filename": "nft.js",
+      "lang": "javascript",
+      "code": "el.innerHTML=meta.name\nfetch(meta.image)  // tokenURI-controlled\n",
+      "expected_categories": [
+        "XSS",
+        "SSRF"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false
+    },
+    {
+      "id": "mix-supabase-servicerole-admin",
+      "filename": "route.ts",
+      "lang": "typescript",
+      "code": "const a=createClient(URL,'eyJ.EXAMPLE.service_role')\nexport async function POST(req){ await a.from('users').delete().neq('id','') }\n",
+      "expected_categories": [
+        "EXPOSED_SECRET",
+        "UNSAFE_ADMIN_ROUTE"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false
+    },
+    {
+      "id": "mix-mcp-shell-noauth",
+      "filename": "m.py",
+      "lang": "python",
+      "code": "mcp=FastMCP('x')\n@mcp.tool()\ndef sh(c): return subprocess.run(c,shell=True,capture_output=True).stdout\nmcp.run()\n",
+      "expected_categories": [
+        "MCP_TOOL_ABUSE",
+        "COMMAND_INJECTION"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false
+    },
+    {
+      "id": "mix-sqli-and-secret",
+      "filename": "db.py",
+      "lang": "python",
+      "code": "DB_PASS='hunter2EXAMPLE'\nc.execute(f\"SELECT * FROM u WHERE n='{name}'\")\n",
+      "expected_categories": [
+        "SQL_INJECTION",
+        "EXPOSED_SECRET"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false
+    },
+    {
+      "id": "mix-ssrf-and-cmdi",
+      "filename": "p.py",
+      "lang": "python",
+      "code": "data=requests.get(req.args['url']).text\nos.system('process '+data)\n",
+      "expected_categories": [
+        "SSRF",
+        "COMMAND_INJECTION"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false
+    },
+    {
+      "id": "mix-wallet-and-secret",
+      "filename": "w.ts",
+      "lang": "typescript",
+      "code": "const PK='EXAMPLEprivkey'\nawait transfer(fromKey(PK), urlParam('to'), MaxUint256)\n",
+      "expected_categories": [
+        "EXPOSED_SECRET",
+        "WALLET_TRANSACTION_RISK"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false
+    },
+    {
+      "id": "mix-admin-cmdi",
+      "filename": "a.py",
+      "lang": "python",
+      "code": "@app.post('/admin/exec')\ndef ex(cmd): return subprocess.check_output(cmd, shell=True)\n",
+      "expected_categories": [
+        "UNSAFE_ADMIN_ROUTE",
+        "COMMAND_INJECTION"
+      ],
+      "expected_min_severity": "CRITICAL",
+      "expected_production_ready": false
+    },
+    {
+      "id": "mix-env-and-debug-route",
+      "filename": "e.py",
+      "lang": "python",
+      "code": "@app.get('/admin/env')\ndef e(): return dict(os.environ)\n",
+      "expected_categories": [
+        "ENVIRONMENT_EXPOSURE",
+        "UNSAFE_ADMIN_ROUTE"
+      ],
+      "expected_min_severity": "HIGH",
+      "expected_production_ready": false
+    },
+    {
+      "id": "clean-parameterized-sql",
       "filename": "ok.py",
       "lang": "python",
-      "code": "def f(c,u):\n  c.execute('SELECT * FROM t WHERE n=%s',(u,))\n  return c.fetchone()\n",
+      "code": "c.execute('SELECT * FROM t WHERE n=%s',(u,))\nreturn c.fetchone()\n",
       "expected_categories": [],
       "expected_min_severity": "INFO",
       "expected_production_ready": true
     },
     {
       "id": "clean-pure-fn",
-      "filename": "math.py",
+      "filename": "m.py",
       "lang": "python",
       "code": "def add(a:int,b:int)->int:\n  return a+b\n",
       "expected_categories": [],
@@ -130,15 +1136,121 @@
       "expected_production_ready": true
     },
     {
-      "id": "wallet-unbounded",
-      "filename": "send.ts",
+      "id": "clean-authed-owned",
+      "filename": "r.py",
+      "lang": "python",
+      "code": "@app.get('/api/me/orders')\ndef o(user=Depends(current_user)):\n  return db.orders(user.id)\n",
+      "expected_categories": [],
+      "expected_min_severity": "INFO",
+      "expected_production_ready": true
+    },
+    {
+      "id": "clean-env-secret",
+      "filename": "s3.py",
+      "lang": "python",
+      "code": "client = boto3.client('s3')  # creds from instance role\n",
+      "expected_categories": [],
+      "expected_min_severity": "INFO",
+      "expected_production_ready": true
+    },
+    {
+      "id": "clean-ratelimited-login",
+      "filename": "l.py",
+      "lang": "python",
+      "code": "@limiter.limit('5/min')\n@app.post('/login')\ndef login(u,p):\n  return check(u,p)\n",
+      "expected_categories": [],
+      "expected_min_severity": "INFO",
+      "expected_production_ready": true
+    },
+    {
+      "id": "clean-allowlist-fetch",
+      "filename": "f.py",
+      "lang": "python",
+      "code": "host=urlparse(url).hostname\nassert host in ALLOWED\nreturn requests.get(url).text\n",
+      "expected_categories": [],
+      "expected_min_severity": "INFO",
+      "expected_production_ready": true
+    },
+    {
+      "id": "clean-escaped-render",
+      "filename": "P.jsx",
+      "lang": "javascript",
+      "code": "<div>{userBio}</div>  // React escapes by default\n",
+      "expected_categories": [],
+      "expected_min_severity": "INFO",
+      "expected_production_ready": true
+    },
+    {
+      "id": "clean-validated-upload",
+      "filename": "u.py",
+      "lang": "python",
+      "code": "ext=os.path.splitext(secure_filename(f.filename))[1]\nassert ext in {'.png','.jpg'}\nf.save(os.path.join(STORE, uuid4().hex+ext))\n",
+      "expected_categories": [],
+      "expected_min_severity": "INFO",
+      "expected_production_ready": true
+    },
+    {
+      "id": "clean-consttime-compare",
+      "filename": "c.py",
+      "lang": "python",
+      "code": "hmac.compare_digest(provided, expected)\n",
+      "expected_categories": [],
+      "expected_min_severity": "INFO",
+      "expected_production_ready": true
+    },
+    {
+      "id": "clean-pinned-deps",
+      "filename": "package.json",
+      "lang": "json",
+      "code": "{\"dependencies\":{\"react\":\"18.3.1\"}}\n",
+      "expected_categories": [],
+      "expected_min_severity": "INFO",
+      "expected_production_ready": true
+    },
+    {
+      "id": "clean-onlyowner",
+      "filename": "O.sol",
+      "lang": "solidity",
+      "code": "function setOwner(address o) public onlyOwner { owner = o; }\n",
+      "expected_categories": [],
+      "expected_min_severity": "INFO",
+      "expected_production_ready": true
+    },
+    {
+      "id": "clean-capped-approve",
+      "filename": "s.ts",
       "lang": "typescript",
-      "code": "export const send=(to,amt)=>transfer(kp,to,amt)\n",
-      "expected_categories": [
-        "WALLET_TRANSACTION_RISK"
-      ],
-      "expected_min_severity": "MEDIUM",
-      "expected_production_ready": false
+      "code": "await token.approve(KNOWN_ROUTER, exactAmount)\n",
+      "expected_categories": [],
+      "expected_min_severity": "INFO",
+      "expected_production_ready": true
+    },
+    {
+      "id": "clean-scoped-mcp",
+      "filename": "m.py",
+      "lang": "python",
+      "code": "@mcp.tool()\ndef uptime():\n  return subprocess.run(['uptime'],capture_output=True,text=True).stdout\n",
+      "expected_categories": [],
+      "expected_min_severity": "INFO",
+      "expected_production_ready": true
+    },
+    {
+      "id": "clean-server-supabase",
+      "filename": "lib.ts",
+      "lang": "typescript",
+      "code": "export const supabase = createClient(process.env.URL!, process.env.ANON_KEY!)\n",
+      "expected_categories": [],
+      "expected_min_severity": "INFO",
+      "expected_production_ready": true
+    },
+    {
+      "id": "clean-webhook-verified",
+      "filename": "wh.js",
+      "lang": "javascript",
+      "code": "const e=stripe.webhooks.constructEvent(req.rawBody, sig, SECRET)\nfulfill(e)\n",
+      "expected_categories": [],
+      "expected_min_severity": "INFO",
+      "expected_production_ready": true
     }
   ]
 }
