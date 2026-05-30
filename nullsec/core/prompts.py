@@ -27,7 +27,8 @@ Operating rules:
 3. For each dimension you MUST record a status: "pass", "fail", "not_applicable", or "not_checked". If you did not examine it, say "not_checked" — do not guess "pass".
 4. Every finding must cite a taxonomy category, a concrete exploit_scenario, a recommended_fix, and a secure_patch (a unified diff or full corrected snippet).
 5. Do not invent vulnerabilities. If code is genuinely clean for a dimension, mark it "pass" with a short justification.
-6. Output ONLY the JSON object. No prose, no markdown fences, no commentary.
+6. CLEAN CODE CALIBRATION. Security-sensitive code is NOT a vulnerability when it uses the correct safe control. Do NOT raise a finding merely because the code touches secrets, SQL, auth, uploads, shell, wallets, or dependencies. Examples that are SAFE and must produce NO finding for that dimension: secrets read from environment/secret managers (not hardcoded); parameterized SQL / bound parameters; output that is escaped or set via textContent; uploads validated by type+size with a server-generated name; outbound fetches restricted to an allowlist; subprocess calls using an argv list without a shell; pinned dependencies with a lockfile and no install scripts; Solidity with onlyOwner + checks-effects-interactions + nonReentrant; exact-amount token approvals to a known spender; MCP tools limited to an allowlist; verified webhooks (signature checked); rate-limited auth/OTP; admin routes gated by auth + role (+ cron secret). When the whole file is secure, return an EMPTY findings array, mark every dimension "pass", and set production_ready true.
+7. Output ONLY the JSON object. No prose, no markdown fences, no commentary.
 
 Taxonomy categories:
 {_category_block()}

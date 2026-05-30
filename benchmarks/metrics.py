@@ -278,23 +278,98 @@ def case_reasons(case: dict, verdict, aligned: bool) -> list[str]:
     return reasons or ["passed"]
 
 
+def _weak_patch(f) -> bool:
+    patch = (f.secure_patch or "").strip()
+    return len(patch) <= 10 or not any(t in patch for t in ("+", "-", "def ", "=", "(", "{"))
+
+
+def case_detail(case: dict, verdict, aligned: bool) -> dict:
+    """A full, explicit per-case record for failure triage (Task-1 fields).
+
+    Returns expected vs predicted categories and verdict, FP/FN counts, and
+    boolean flags for the common failure modes. `passed` is True only when the
+    prediction matches the label exactly (no FP/FN, verdict matches, severity met,
+    output well-formed)."""
+    expected = sorted(case.get("expected_categories", []))
+    exp_ready = bool(case.get("expected_production_ready"))
+    exp_verdict = "safe" if exp_ready else "unsafe"
+
+    if not aligned or verdict is None:
+        return {
+            "case_id": case["id"],
+            "expected_categories": expected,
+            "predicted_categories": [],
+            "expected_verdict": exp_verdict,
+            "predicted_verdict": None,
+            "false_positive": 0,
+            "false_negative": len(expected),
+            "hallucinated_clean_finding": False,
+            "malformed_or_missing_output": True,
+            "weak_patch": [],
+            "notes": "no alignable / missing model output",
+            "passed": False,
+        }
+
+    predicted = sorted({f.category for f in verdict.findings})
+    exp_set, pred_set = set(expected), set(predicted)
+    fp = len(pred_set - exp_set)
+    fn = len(exp_set - pred_set)
+    pred_ready = bool(verdict.production_ready)
+    weak = sorted({f.category for f in verdict.findings if f.category in exp_set and _weak_patch(f)})
+    low_sev = severity_rank(verdict.severity) < severity_rank(case.get("expected_min_severity", "INFO"))
+    verdict_mismatch = pred_ready != exp_ready
+
+    notes = []
+    if fp:
+        notes.append(f"extra:{sorted(pred_set - exp_set)}")
+    if fn:
+        notes.append(f"missed:{sorted(exp_set - pred_set)}")
+    if low_sev:
+        notes.append(f"low_severity:{verdict.severity}<{case.get('expected_min_severity','INFO')}")
+    if verdict_mismatch:
+        notes.append(f"verdict:{('safe' if pred_ready else 'unsafe')}!={exp_verdict}")
+    if weak:
+        notes.append(f"weak_patch:{weak}")
+
+    passed = (fp == 0 and fn == 0 and not verdict_mismatch and not low_sev and not weak)
+    return {
+        "case_id": case["id"],
+        "expected_categories": expected,
+        "predicted_categories": predicted,
+        "expected_verdict": exp_verdict,
+        "predicted_verdict": "safe" if pred_ready else "unsafe",
+        "false_positive": fp,
+        "false_negative": fn,
+        "hallucinated_clean_finding": (not exp_set and bool(pred_set)),
+        "malformed_or_missing_output": False,
+        "weak_patch": weak,
+        "notes": "; ".join(notes) or "ok",
+        "passed": passed,
+    }
+
+
 def debug_report(cases, verdicts, failed_only: bool = True) -> dict:
-    """Per-case reason codes for fast failure triage.
+    """Per-case explicit failure-triage records.
 
     `verdicts` maps case_id -> (Verdict|None, aligned_bool). With failed_only,
-    only cases whose reasons are not exactly ["passed"] are included.
+    only cases that did not pass are included in `per_case`.
     """
-    out: dict[str, list[str]] = {}
+    details = []
     passed = 0
     for case in cases:
         v, ok = verdicts.get(case["id"], (None, False))
-        reasons = case_reasons(case, v, ok)
-        if reasons == ["passed"]:
+        d = case_detail(case, v, ok)
+        if d["passed"]:
             passed += 1
             if failed_only:
                 continue
-        out[case["id"]] = reasons
-    return {"cases": len(cases), "passed": passed, "failed": len(cases) - passed, "per_case": out}
+        details.append(d)
+    return {
+        "cases": len(cases),
+        "passed": passed,
+        "failed": len(cases) - passed,
+        "per_case": {d["case_id"]: d for d in details},
+    }
 
 
 def per_category_recall(cases, verdicts) -> dict:

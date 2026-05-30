@@ -57,15 +57,29 @@ def main():
     verdicts = collect_verdicts(ds, build_provider(args))
 
     suite = {name: fn(ds["cases"], verdicts) for name, fn in FAMILIES.items()}
-    # Per-case reason codes (always recorded in the report; printed with --debug).
+    # Per-case explicit failure-triage records (recorded in the report; printed with --debug).
     dbg = debug_report(ds["cases"], verdicts, failed_only=bool(args.failed_only))
     suite["debug"] = dbg
     if args.debug:
-        print("Per-case reasons "
-              f"({'failed only' if args.failed_only else 'all'}; "
-              f"{dbg['passed']}/{dbg['cases']} passed):")
-        for cid, reasons in dbg["per_case"].items():
-            print(f"  {cid:34} {', '.join(reasons)}")
+        scope = "failed only" if args.failed_only else "all cases"
+        print(f"Per-case detail ({scope}; {dbg['passed']}/{dbg['cases']} passed):\n")
+        for cid, d in dbg["per_case"].items():
+            flags = []
+            if d["malformed_or_missing_output"]:
+                flags.append("MALFORMED/MISSING")
+            if d["hallucinated_clean_finding"]:
+                flags.append("HALLUCINATED_CLEAN_FINDING")
+            if d["false_positive"]:
+                flags.append(f"FP={d['false_positive']}")
+            if d["false_negative"]:
+                flags.append(f"FN={d['false_negative']}")
+            if d["weak_patch"]:
+                flags.append(f"WEAK_PATCH={d['weak_patch']}")
+            print(f"  {cid}")
+            print(f"      expected : {d['expected_verdict']:6} {d['expected_categories']}")
+            print(f"      predicted: {str(d['predicted_verdict']):6} {d['predicted_categories']}")
+            print(f"      flags    : {', '.join(flags) or '-'}")
+            print(f"      notes    : {d['notes']}")
         print()
     # Headline summary: total cases and how many produced an alignable output.
     produced = sum(1 for cid in (c["id"] for c in ds["cases"]) if verdicts.get(cid, (None, False))[1])
