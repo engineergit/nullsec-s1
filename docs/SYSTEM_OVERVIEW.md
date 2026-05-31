@@ -129,9 +129,9 @@ finding. Full detail, including the prompt-injection resistance argument, is in
 ## 6. Corpus
 
 `corpus/` is the single source of truth for training data. The current curated
-corpus is **500 examples** (63 hand-authored + 437 curated-ingested), spanning
-all 16 categories with **≥ 30 curated examples each** and **100% Safety Layer
-consistency**. Provenance is tracked explicitly (`hand_authored`,
+corpus is **1,741 examples** (1,304 hand-authored + 437 curated-ingested),
+spanning all 16 categories with **≥ 60 curated examples each** and **100% Safety
+Layer consistency**. Provenance is tracked explicitly (`hand_authored`,
 `curated_ingested`, `synthetic_variant`), and synthetic data never counts toward
 curated thresholds. The schema, provenance rules, and curation workflow are in
 [`CORPUS.md`](CORPUS.md).
@@ -184,12 +184,10 @@ the project — see [`NON_CLAIMS.md`](NON_CLAIMS.md) and
 
 ## 10. Current limitations
 
-- **Not yet trained.** There is no trained adapter on disk; the system is
-  training-ready, not a trained model release.
-- **Not yet benchmarked.** No real-model benchmark report exists, so detection
-  quality numbers are not available and are not claimed.
-- **Corpus depth.** 500 curated examples is a strong foundation but still an
-  early corpus; recall on real-world variety grows with scale.
+- **Release-candidate scope.** RC2/v1.1 was evaluated on the included 111-case
+  benchmark suite. Performance on arbitrary real-world systems can differ.
+- **Corpus depth.** 1,741 curated examples is a strong RC2/v1.1 corpus, but
+  recall on real-world variety grows with broader coverage.
 - **Patch verification is structural.** The benchmark checks that patches are
   well-formed and do not reintroduce known-insecure patterns; compile/run/test
   verification is future work.

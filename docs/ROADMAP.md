@@ -1,10 +1,8 @@
 # Nullsec S1 — Roadmap
 
-This roadmap is ambitious but honest. Phase 0 is verifiable from this repo's
-committed artifacts. RC1 (Phases 1–3) ran for real on a GPU; its artifacts are
-published as a **GitHub Release**, not committed to source, so the in-repo claim
-validator (`scripts/validate_claims.py`) stays conservative on this checkout by
-design. RC2 (v1.1) is the next, larger run.
+This roadmap is ambitious but honest. RC2/v1.1 has passed as a real-model release
+candidate and is published as GitHub Release [`v1.0.0-rc25`](https://github.com/trynullsec/nullsec-s1/releases/tag/v1.0.0-rc25).
+Trained artifacts are distributed as Release assets, not committed to source.
 
 Legend: ✅ done · ▶ next · ◻ planned
 
@@ -16,9 +14,9 @@ The deterministic, model-independent foundation.
 
 - 16-category security taxonomy mapped to 8 check dimensions.
 - Security Alignment Layer + Nullsec Safety Layer with adversarial probes.
-- Curated corpus (now 556: 119 hand-authored + 437 curated-ingested), ≥ 31 curated
-  per category, 100% Safety Layer consistency.
-- v1.0 release-readiness threshold passes; claim validator enforces honesty.
+- Curated corpus (now 1,741: 1,304 hand-authored + 437 curated-ingested), every
+  category ≥ 60, 100% Safety Layer consistency.
+- v1.0 and RC2/v1.1 data thresholds pass; claim validator enforces honesty.
 
 **Exit criteria (met):** `pytest`, `validate_corpus.py`, `release_threshold.py`,
 `safety_probes`, and `validate_claims.py --check` all pass.
@@ -54,42 +52,53 @@ Release bundle — these numbers are not re-verified by this source checkout):
 | secure_generation_score | 0.6 |
 | OWASP coverage | 1.0 |
 
-RC1 used the previous 12-case benchmark. RC2 re-runs evaluation on the expanded
-111-case suite, where these numbers will be re-measured (and may move).
+RC1 used the previous 12-case benchmark. RC2/v1.1 supersedes it with the expanded
+111-case suite and the `v1.0.0-rc25` release artifacts.
 
 ---
 
-## Phase 3 — Release candidate ✅ (RC1) / ▶ (RC2)
+## Phase 3 — Release candidate ✅ (RC1, RC2/v1.1)
 
 **RC1:** `scripts/release_candidate.py` produced a release bundle (adapter +
 real-model benchmark + passing safety probes), published as the RC1 Release.
 
-**RC2:** a fresh release candidate on the larger corpus + 111-case benchmark, gated
-by the stricter RC2 production-ready bar (≥ 100 benchmark cases, F1 ≥ 0.90, zero
-false-safe). Tracked below.
+**RC2/v1.1:** `v1.0.0-rc25` passed the stricter RC2 bar on the 111-case
+real-model benchmark: `111/111` outputs, detection F1 `0.9245`, false-safe rate
+`0.0`, safety probes passed. Release assets contain the adapter, benchmark
+reports, release bundle, metrics, and pipeline log.
 
 ---
 
-## RC2 / v1.1 — current focus ▶
+## RC2 / v1.1 ✅
 
 A stronger, more serious run than RC1:
 
-- **Corpus → 1,000 curated** (currently 556), all 16 categories ≥ 60 (currently
-  ≥ 31). Honest gap: see `training/release_threshold.py --profile rc2`.
+- **Corpus:** 1,741 curated, all 16 categories ≥ 60, 100% Safety Layer consistency.
 - **Benchmark → 100+ cases** across all 16 categories, with clean/benign, hard
   unsafe, MCP/tool-abuse, Web3/wallet, and Next.js/Supabase/Vercel/Stripe/Auth
   cases. **Done: 111 cases.**
-- **Hardened CUDA 12.1 training stack** (`requirements-train-cu121.txt`,
-  preflight Torch/CUDA mismatch detection, `max_length`, resume support).
+- **Hardened B200 / CUDA 12.8 training path** was used for the final release run.
 - **Stricter production-ready gate** (separate from v1.0): real-model release
   candidate + ≥ 100 benchmark cases + zero false-safe + detection F1 ≥ 0.90.
 
-Neither RC2 gate is met yet on this checkout; both report BLOCKED honestly until
-the corpus reaches the v1.1 target.
+The RC2/v1.1 gate is met by the `v1.0.0-rc25` release artifacts.
 
 ---
 
-## Phase 4 — CLI / GitHub Action hardening ◻
+## Phase 4 — Hosted web scanner ◻
+
+Launch the hosted scanner at `s1.trynullsec.com`.
+
+---
+
+## Phase 5 — API backend for scans ◻
+
+Production API backend for upload/scan workflows, release-backed model loading,
+and persisted audit reports.
+
+---
+
+## Phase 6 — GitHub Action / PR guard ◻
 
 Make the `nullsec1` CI gate robust and easy to adopt: a published GitHub Action,
 PR-diff-scoped analysis, machine-readable SARIF output, and configurable risk
@@ -97,15 +106,14 @@ thresholds per repo.
 
 ---
 
-## Phase 5 — Hosted Nullsec S1 API ◻
+## Phase 7 — CLI scanner hardening ◻
 
-A hosted endpoint mirroring `serving/server.py` so teams can call the enforced
-verdict pipeline without standing up a GPU. Same single enforcement path; the
-Safety Layer runs in front.
+Improve the `nullsec1` CLI scanner UX, output formats, SARIF export, and local
+repository workflows.
 
 ---
 
-## Phase 6 — Dashboard / audit reports ◻
+## Phase 8 — Dashboard / audit reports ◻
 
 A reviewer-facing surface: verdict history, blocking-reason breakdowns,
 per-repository risk trends, and exportable audit reports backed by the fingerprint
@@ -113,7 +121,7 @@ for reproducibility.
 
 ---
 
-## Phase 7 — Larger corpus + stronger model variants ◻
+## Phase 9 — Larger benchmark suite + framework coverage ◻
 
 Scale the corpus with more real CVE/scanner ingestion and AI-generated failure
 cases, deepen per-category coverage, and offer larger model variants (e.g. the
@@ -121,7 +129,7 @@ cases, deepen per-category coverage, and offer larger model variants (e.g. the
 
 ---
 
-## Phase 8 — Base / Web3-specific eval suites ◻
+## Phase 10 — Base / Web3-specific eval suites ◻
 
 Dedicated evaluation suites for on-chain and wallet code: smart-contract risk,
 transaction safety, signing flows, and generated Web3 frontends — measured
@@ -129,7 +137,7 @@ separately so Web3 recall is reported on its own terms.
 
 ---
 
-## Phase 9 — MCP / tool-risk runtime integration ◻
+## Phase 11 — MCP / tool-risk runtime integration ◻
 
 Runtime integration for agent ecosystems: evaluate MCP tool definitions and tool
 call flows as they are registered, flag over-permissioned tools and

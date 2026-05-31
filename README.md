@@ -2,59 +2,130 @@
   <img src="./assets/nullsec-s1-banner.png" alt="Nullsec S1" width="100%" />
 </p>
 
-# Nullsec S1
+# Nullsec-S1
 
-**Security-native LLM system for the AI-generated software era.**
+**An open-source security model purpose-built to audit AI-generated apps, agents, and vibecoded software before they reach production.**
 
 [![tests](https://img.shields.io/badge/tests-passing-brightgreen)](#current-verified-state)
-[![corpus threshold](https://img.shields.io/badge/corpus%20threshold-PASS-brightgreen)](#current-verified-state)
+[![release](https://img.shields.io/badge/release-RC2%2Fv1.1-brightgreen)](#current-verified-release)
 [![safety layer](https://img.shields.io/badge/safety%20layer-100%25%20consistent-brightgreen)](#the-security-alignment-layer)
-[![status](https://img.shields.io/badge/status-training--ready-blue)](#current-verified-state)
+[![benchmark](https://img.shields.io/badge/benchmark-real--model-blue)](#benchmark-summary)
 [![python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
-[![license](https://img.shields.io/badge/license-Apache--2.0-blue)](#license)
 
-Nullsec S1 is being built to **analyze, explain, patch, and gate AI-generated applications before they reach production.**
+Nullsec-S1 analyzes, explains, patches, and gates AI-generated software before it reaches production. It combines a trained QLoRA adapter, a curated AI-generated-app failure corpus, structured JSON security verdicts, a deterministic **Security Alignment Layer**, secure patch generation, and a release-validation framework.
 
-It combines:
-
-- a curated corpus of AI-generated application failures
-- a specialized code-security model training pipeline
-- structured JSON security verdicts
-- a deterministic **Security Alignment Layer**
-- secure patch generation
-- CI / API / CLI enforcement
-- a benchmark and release-validation framework
-
-> **Current status: training-ready, corpus-complete, safety-layer-enforced.** See [Current verified state](#current-verified-state) for the full, honest breakdown.
-
-This is not a scanner. It is a full security system for AI-generated software — a specialized security model wrapped in a non-bypassable, deterministic enforcement layer.
-
-> **A note on names.** *Nullsec S1* is the system. Its reference implementation ships as the `nullsec1` Python package and CLI, and the model release identity is `Nullsec-1.0` (`python -m nullsec.core.version`). You will see all three; they refer to the same project.
+This is not a scanner. It is a security system for AI-generated software: a specialized security model wrapped in a deterministic enforcement layer that recomputes production-readiness instead of trusting the model's raw claim.
 
 ---
 
 ## Table of contents
 
+- [Current Verified Release](#current-verified-release)
+- [Benchmark Summary](#benchmark-summary)
+- [What Nullsec-S1 Detects](#what-nullsec-s1-detects)
+- [What This Release Contains](#what-this-release-contains)
+- [How To Use](#how-to-use)
+- [Quick Verification](#quick-verification)
 - [Architecture](#architecture)
 - [Why Nullsec S1 exists](#why-nullsec-s1-exists)
-- [What Nullsec S1 does](#what-nullsec-s1-does)
-- [How S1 is different](#how-s1-is-different)
 - [Core system components](#core-system-components)
 - [Current verified state](#current-verified-state)
-- [Training runs: RC1 → RC2](#training-runs-rc1--rc2)
 - [The Security Alignment Layer](#the-security-alignment-layer)
-- [Quickstart](#quickstart)
 - [Corpus status](#corpus-status)
 - [Training workflow](#training-workflow)
-- [Training on GPU](#training-on-gpu)
-- [Benchmark workflow](#benchmark-workflow)
 - [Release pipeline](#release-pipeline)
-- [Repo structure](#repo-structure)
+- [Honest Limitations](#honest-limitations)
 - [Roadmap](#roadmap)
 - [What Nullsec S1 does not claim](#what-nullsec-s1-does-not-claim)
 - [Contributing](#contributing)
 - [Security](#security)
-- [License](#license)
+
+---
+
+## Current Verified Release
+
+| Field | Value |
+|-------|-------|
+| Current verified release | **RC2/v1.1** |
+| GitHub release tag | [`v1.0.0-rc25`](https://github.com/trynullsec/nullsec-s1/releases/tag/v1.0.0-rc25) |
+| Release title | `Nullsec-S1 RC2/v1.1` |
+| Source commit | `c29c7f1` (`Add RC2.5 micro-calibration examples`) |
+| Base model | `Qwen/Qwen2.5-Coder-7B-Instruct` |
+| Fine-tuning method | QLoRA |
+| Enforcement | Deterministic Security Alignment + Safety Layer |
+
+The release assets are distributed through GitHub Releases, not committed to this source repository.
+
+## Benchmark Summary
+
+The RC2/v1.1 release artifacts include a `run_mode: "model"` benchmark over the included 111-case suite.
+
+| Metric | RC2/v1.1 |
+|--------|----------|
+| outputs | `111/111` |
+| detection F1 | `0.9245` |
+| false_safe_rate | `0.0` |
+| safety probes | `passed` |
+| production-ready | `ALLOWED` |
+| production-ready RC2/v1.1 | `ALLOWED` |
+
+These numbers are tied to the [`v1.0.0-rc25` release artifacts](https://github.com/trynullsec/nullsec-s1/releases/tag/v1.0.0-rc25).
+
+## What Nullsec-S1 Detects
+
+Nullsec-S1 emits structured findings for the security taxonomy in `taxonomy/taxonomy.json`, including:
+
+- `BROKEN_AUTH`
+- `UNSAFE_ADMIN_ROUTE`
+- `EXPOSED_SECRET`
+- `ENVIRONMENT_EXPOSURE`
+- `MCP_TOOL_ABUSE`
+- `COMMAND_INJECTION`
+- `SSRF`
+- `XSS`
+- `MISSING_RATE_LIMIT`
+- `SMART_CONTRACT_RISK`
+- `WALLET_TRANSACTION_RISK`
+- `UNSAFE_FILE_UPLOAD`
+- `SQL_INJECTION`
+- `PROMPT_INJECTION`
+- `DANGEROUS_SHELL_COMMAND`
+- `DEPENDENCY_RISK`
+
+## What This Release Contains
+
+The [`v1.0.0-rc25` GitHub Release](https://github.com/trynullsec/nullsec-s1/releases/tag/v1.0.0-rc25) contains:
+
+- trained QLoRA adapter
+- benchmark reports
+- release bundle
+- metrics file
+- pipeline log
+
+Large release assets are intentionally kept out of git.
+
+## How To Use
+
+There are three supported usage paths today:
+
+1. **Download the release artifact.** Use the `v1.0.0-rc25` release asset to obtain the trained adapter, benchmark reports, release bundle, metrics, and pipeline log.
+2. **Run local benchmark / validation.** Clone the repo, install dependencies, unpack the release assets locally, then run the verification command below against the adapter and report.
+3. **Integrate into scanner / API / CI workflows.** The repo includes the `nullsec1` CLI, FastAPI serving layer, deterministic Safety Layer, and release-validation scripts. Hosted scanner/API/GitHub integration is tracked on the roadmap.
+
+No hosted API is claimed in this repo today.
+
+## Quick Verification
+
+After downloading and unpacking the release artifacts locally:
+
+```bash
+python scripts/validate_claims.py \
+  --adapter outputs/nullsec-s1-qlora \
+  --report releases/nullsec-1.0/benchmark/SUITE.json \
+  --check
+```
+
+This verifies that public claims match the adapter, benchmark report, safety probes, and release bundle on disk.
 
 ---
 
@@ -127,35 +198,16 @@ A general code model can describe these problems in prose. What it cannot do is 
 
 ## What Nullsec S1 does
 
-Given source code (a file, a directory, a PR, an MCP tool definition, or a generated Web3 flow), Nullsec S1:
+Given source code (a file, directory, PR, MCP tool definition, or generated Web3 flow), Nullsec-S1:
 
-1. **Detects** vulnerabilities across a 16-category security taxonomy.
-2. **Classifies** severity and confidence per finding.
-3. **Explains** a concrete exploit scenario for each finding.
-4. **Patches** — emits a secure patch target (unified diff or corrected snippet) per finding.
-5. **Reports** on all eight check dimensions explicitly (`pass | fail | not_applicable | not_checked`).
-6. **Gates** production-readiness through the deterministic Safety Layer, never the model alone.
-7. **Enforces** in CI / API / CLI — the CLI exits non-zero when code is not production-ready, so it doubles as a build gate.
+1. detects vulnerabilities across a 16-category security taxonomy;
+2. classifies severity and confidence per finding;
+3. explains a concrete exploit scenario;
+4. emits a secure patch target;
+5. reports on all eight check dimensions explicitly;
+6. gates production-readiness through the deterministic Safety Layer.
 
-Output is always a single JSON object defined by [`data/schemas/verdict.schema.json`](data/schemas/verdict.schema.json), and it always passes through the same two deterministic layers — whether invoked through the server, the CLI, the benchmark suite, or the training data builder. There is exactly one enforcement path.
-
----
-
-## How S1 is different
-
-| Capability           | Nullsec S1                              | GPT / Claude / generic coding LLMs |
-| -------------------- | --------------------------------------- | ---------------------------------- |
-| Objective            | Security verdicts for AI-generated apps | General code generation/reasoning  |
-| Corpus               | AI-generated app failure corpus         | Broad general-purpose data         |
-| Output               | Structured JSON security verdicts       | Free-form responses                |
-| Enforcement          | Deterministic Safety Layer              | User-defined prompting             |
-| Production readiness | Built-in release gating                 | Manual interpretation              |
-| MCP / tool abuse     | First-class category                    | General reasoning                  |
-| Wallet / Web3 risk   | First-class category                    | General reasoning                  |
-| Secure patches       | Security-native patch targets           | General code edits                 |
-| Claim validation     | Built-in honesty checks                 | External / manual                  |
-
-**Nullsec S1 is not trying to be better at everything.** It is being built to be better at one job: *verifying whether AI-generated software is safe to ship.* General-purpose models remain excellent at generation and broad reasoning; Nullsec S1 is the specialized, enforceable reviewer that sits in front of them.
+Output is always a single JSON object defined by [`data/schemas/verdict.schema.json`](data/schemas/verdict.schema.json), and it always passes through the same deterministic enforcement path.
 
 ---
 
@@ -181,62 +233,24 @@ Output is always a single JSON object defined by [`data/schemas/verdict.schema.j
 
 ## Current verified state
 
-The corpus exceeds the v1.0 training threshold and the deterministic Safety Layer is fully enforced and tested. This **source checkout** contains no committed trained adapter or benchmark report — trained weights are published as GitHub Release assets, not committed to source (see [Training runs](#training-runs-rc1--rc2)). The repo enforces that distinction automatically through claim validation.
+The corpus exceeds the v1.0 and RC2/v1.1 data thresholds, the deterministic Safety Layer is enforced, and the trained RC2/v1.1 release artifacts are published as GitHub Release assets rather than committed to source.
 
 This snapshot reflects the artifacts on disk right now. Every number below is produced by a command in this repo — none are hand-entered. Run the commands in [Quickstart](#quickstart) to reproduce them.
 
 | Fact | Value | Source command |
 |------|-------|----------------|
-| Curated corpus | **556** examples (119 hand-authored + 437 curated-ingested) | `training/dataset_stats.py --include-ingested` |
-| Train / eval split | **445 train / 111 eval** (eval_frac 0.2, seed 42) | `training/prepare_dataset.py --include-ingested` |
+| Curated corpus | **1,741** examples (1,304 hand-authored + 437 curated-ingested) | `training/dataset_stats.py --include-ingested` |
+| Train / eval split | **1,393 train / 348 eval** (eval_frac 0.2, seed 42) | `training/prepare_dataset.py --include-ingested` |
 | Taxonomy categories | **16** categories → 8 check dimensions | `taxonomy/taxonomy.json` |
-| Per-category coverage | every category **≥ 31** curated (v1.0 needs ≥ 25; v1.1 target ≥ 60) | `training/release_threshold.py --include-ingested` |
-| Safety Layer consistency | **100%** (556 / 556) | `training/dataset_stats.py --include-ingested` |
+| Per-category coverage | every category **≥ 60** curated | `training/release_threshold.py --include-ingested --profile rc2` |
+| Safety Layer consistency | **100%** (1,741 / 1,741) | `training/dataset_stats.py --include-ingested` |
 | Benchmark suite | **111** labeled cases across all 16 categories | `benchmarks/datasets/detection.json` |
 | Adversarial safety probes | **8 / 8 blocked**, 0 bypassed | `python -m benchmarks.safety_probes` |
 | Test suite | passing | `pytest -q` |
 | Release threshold (v1.0) | **PASS** | `training/release_threshold.py --include-ingested` |
-| Release threshold (v1.1 / RC2) | **BLOCKED** (corpus 556/1000) — honest gap | `training/release_threshold.py --include-ingested --profile rc2` |
+| Release threshold (v1.1 / RC2) | **PASS** | `training/release_threshold.py --include-ingested --profile rc2` |
 
-**What the claim validator permits for this checkout** (`python scripts/validate_claims.py`):
-
-- ✅ `training-ready` — pipeline, schema, and a non-empty curated corpus are present
-- ✅ `safety-layer-enforced` — all adversarial Safety Layer probes are blocked
-- ⛔ `trained model` — **gated here**: no trained adapter is committed to this source repo (RC1's is a GitHub Release asset)
-- ⛔ `benchmarked` — **gated here**: no benchmark report is committed to this checkout
-- ⛔ real-model evaluation — **gated here**: same reason
-- ⛔ `release candidate` — **gated here**: requires the trained adapter, benchmark, probes, and bundle to be present
-- ⛔ `production-ready` (the model) — **gated here**: the v1.0 bar; RC2 adds a stricter, separate gate (≥ 100 benchmark cases, F1 ≥ 0.90, zero false-safe)
-- ⛔ `first / only / best` — **never** auto-permitted from local artifacts
-
-The honesty gate (`scripts/validate_claims.py --check`) scans this README and fails CI if it asserts anything the on-disk artifacts do not support. The wording here is written to pass that check truthfully — and it stays conservative **by design** even though RC1 has run, because RC1's artifacts are distributed as a Release rather than committed here.
-
----
-
-## Training runs: RC1 → RC2
-
-**RC1 — completed.** The first real QLoRA training run was carried out on a RunPod
-**A100 80GB** box against this corpus, using the hardened CUDA 12.1 stack
-(`torch==2.5.1+cu121`). Its trained adapter, real-model benchmark report, and
-adversarial safety-probe results are published as a **GitHub Release**, not
-committed to this source repo — the repository stays lightweight and trained
-weights ship as release assets. The RC1 stack fixes (the reason `train_qlora.py`
-uses `max_length`, drops the legacy completion-only collator, and pins the cu121
-torch build) are documented in [`RELEASE_TRAINING.md`](RELEASE_TRAINING.md),
-[`RUNPOD.md`](RUNPOD.md), and [`docs/ROADMAP.md`](docs/ROADMAP.md).
-
-Because those artifacts are intentionally absent from this checkout, the in-repo
-claim validator stays conservative here — it gates trained/benchmarked wording on
-what is present on disk. That is the point: the README never asserts more than
-this checkout can prove.
-
-**RC2 / v1.1 — in preparation.** A stronger run: a larger curated corpus (target
-1,000), the benchmark expanded to 100+ cases across all 16 categories (done: 111),
-and a hardened, reproducible CUDA 12.1 training stack. RC2 has its own stricter
-data gate (`training/release_threshold.py --profile rc2`) and a stricter,
-separate production-ready claim gate (real-model release candidate, ≥ 100 benchmark
-cases, zero false-safe rate, detection F1 ≥ 0.90). Both report BLOCKED today until
-the corpus reaches the v1.1 target — see [`docs/ROADMAP.md`](docs/ROADMAP.md).
+The honesty gate (`scripts/validate_claims.py --check`) ties public wording to local artifacts. To reproduce the release-asset claim state, unpack the GitHub Release bundle locally and run the [Quick Verification](#quick-verification) command.
 
 ---
 
@@ -290,7 +304,7 @@ python -m nullsec.core.version
 
 ## Corpus status
 
-`corpus/` is the single source of truth for training data. The current curated corpus is **500 examples** (63 hand-authored + 437 curated-ingested), every taxonomy category has **≥ 30** curated examples, and **Safety Layer consistency is 100%** — so the v1.0 training threshold (`training/release_threshold.py`) passes.
+`corpus/` is the single source of truth for training data. The current curated corpus is **1,741 examples** (1,304 hand-authored + 437 curated-ingested), every taxonomy category has **≥ 60** curated examples, and **Safety Layer consistency is 100%** — so both the v1.0 and RC2/v1.1 data thresholds pass.
 
 Provenance is tracked explicitly and never blurred:
 
@@ -318,7 +332,7 @@ python training/preflight_train.py
 python training/train_qlora.py --config training/config.yaml
 ```
 
-The default config targets a **single 24GB GPU** (e.g. RTX 3090/4090) with 4-bit NF4 QLoRA, completion-only loss on the verdict tokens. A 14B/A100 configuration is a commented config-only swap in [`training/config.yaml`](training/config.yaml). Base model: `Qwen/Qwen2.5-Coder-7B-Instruct` (Apache 2.0).
+The release adapter was trained with QLoRA on `Qwen/Qwen2.5-Coder-7B-Instruct` (Apache 2.0). Training instructions remain in [`RELEASE_TRAINING.md`](RELEASE_TRAINING.md), [`RUNPOD.md`](RUNPOD.md), and [`GPU_QUICKSTART.md`](GPU_QUICKSTART.md).
 
 ---
 
@@ -399,20 +413,31 @@ docs/                      architecture · system overview · safety layer · co
 
 ---
 
+## Honest Limitations
+
+- RC2/v1.1 is a candidate release measured on the included 111-case benchmark suite.
+- Independent review is still recommended before relying on any security model for critical production systems.
+- No "first", "only", or "best" claims are made here.
+- Benchmark performance does not guarantee every vulnerability will be detected in arbitrary real-world code.
+- A clean verdict reduces risk; it does not prove the absence of vulnerabilities.
+
+---
+
 ## Roadmap
 
 | Phase | Milestone | State |
 |-------|-----------|-------|
 | 0 | Corpus + safety foundation | ✅ done |
-| 1 | First QLoRA training run | next |
-| 2 | Real model evaluation | planned |
-| 3 | Release candidate | planned |
-| 4 | CLI / GitHub Action hardening | planned |
-| 5 | Hosted Nullsec S1 API | planned |
-| 6 | Dashboard / audit reports | planned |
-| 7 | Larger corpus + stronger model variants | planned |
-| 8 | Base/Web3-specific eval suites | planned |
-| 9 | MCP / tool-risk runtime integration | planned |
+| 1 | QLoRA training run | ✅ done |
+| 2 | Real-model benchmark | ✅ done |
+| 3 | RC2/v1.1 release assets | ✅ done |
+| 4 | Hosted web scanner at `s1.trynullsec.com` | planned |
+| 5 | API backend for scans | planned |
+| 6 | GitHub Action / PR guard | planned |
+| 7 | CLI scanner hardening | planned |
+| 8 | Larger benchmark suite | planned |
+| 9 | More framework coverage | planned |
+| 10 | MCP / tool-risk runtime integration | planned |
 
 Full detail and exit criteria per phase: [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
@@ -423,8 +448,6 @@ Full detail and exit criteria per phase: [`docs/ROADMAP.md`](docs/ROADMAP.md).
 To keep this project rigorous rather than exaggerated, the following are **explicitly not claimed** today:
 
 - Nullsec S1 is **not** trained from scratch (it fine-tunes an open code model).
-- It is **not** yet a trained model release — no trained adapter exists.
-- It is **not** yet benchmarked with real model outputs — no benchmark report exists.
 - It is **not** a replacement for human security review, SAST/DAST, or a security team.
 - It is **not** guaranteed to catch every vulnerability; a clean verdict reduces but does not eliminate risk.
 - "First / only / best" claims cannot be validated from repo artifacts and are not made here.

@@ -13,29 +13,22 @@ Nullsec S1 fine-tunes an open code model (`Qwen/Qwen2.5-Coder-7B-Instruct`,
 Apache 2.0) with QLoRA. It does **not** pretrain a foundation model from scratch,
 and it does not claim to.
 
-## No trained weights committed to this source repo
+## Release assets, not source commits
 
-RC1 (the first real QLoRA run) *did* produce a trained adapter, and it is
-published as a **GitHub Release asset** — but it is deliberately **not committed**
-to this source repo (trained weights ship as release assets; the repo stays
-lightweight). So in this checkout there is **no trained adapter on disk**
-(`outputs/.../adapter_config.json` + weights). The in-repo claim validator gates
-on what is present here, so it continues to treat this checkout as
-*training-ready* and **forbids** unqualified "trained model" wording in `README.md`.
-This is intentional: the README never asserts more than the checkout can prove.
-RC1's results are stated in `docs/ROADMAP.md`, attributed to the published Release
-bundle as the source of truth.
+The trained adapter and benchmark reports for RC2/v1.1 are published as GitHub
+Release assets (`v1.0.0-rc25`). They are deliberately **not committed** to this
+source repo (trained weights ship as release assets; the repo stays lightweight).
+The in-repo claim validator gates on what is present on disk: an unpacked release
+bundle permits release-backed claims locally; a fresh source checkout without the
+adapter/report remains conservative. This is intentional.
 
-## No benchmark numbers asserted in this checkout
+## Benchmark numbers are release-artifact claims
 
-RC1 was evaluated against the live model and its `SUITE.json` lives in the
-published Release bundle. This source checkout commits **no** benchmark report, so
-the claim validator **forbids** "benchmarked"/real-model-evaluation wording in
-`README.md`, and the README states **no** detection F1, precision, recall, or
-false-safe rate as a repo-verified fact. Benchmark numbers come only from real
-runs (`--mode model`, or `--mode replay` over captured real outputs); a case with
-no output is scored as a real miss, never a synthetic pass. The repo ships no
-precomputed result files.
+README benchmark numbers are tied to the `v1.0.0-rc25` release artifacts, not to
+hand-entered source files. Benchmark numbers come only from real runs
+(`--mode model`, or `--mode replay` over captured real outputs); a case with no
+output is scored as a real miss, never a synthetic pass. The source repo does not
+commit large result bundles or trained weights.
 
 ## Not a replacement for human security review
 
@@ -61,10 +54,11 @@ They are not made here and would need independent support if ever stated.
 
 The strongest claim — that the *model* is suitable for production use — is gated
 on the highest bar: a trained adapter, a real-model benchmark, a zero false-safe
-rate, and adequate detection quality, plus independent review. None of that exists
-yet, so the claim is forbidden. (Note: the verdict field `production_ready` is a
-separate, well-defined per-analysis decision computed by the Safety Layer; it is
-not a claim about the model itself.)
+rate, adequate detection quality, and independent review. RC2/v1.1 satisfies this
+bar on the included release benchmark suite. That does not make the model a
+guarantee for arbitrary real-world code. (Note: the verdict field
+`production_ready` is a separate, well-defined per-analysis decision computed by
+the Safety Layer; it is not an absolute security guarantee.)
 
 ---
 

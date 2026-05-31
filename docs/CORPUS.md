@@ -6,9 +6,9 @@ data-side tool — `prepare_dataset.py`, `dataset_stats.py`, `validate_corpus.py
 so the number of examples used for training always matches what the stats and the
 threshold report (for the same flags).
 
-> **Current snapshot:** 500 curated examples (63 `hand_authored` + 437
-> `curated_ingested`), 400 train / 100 eval, all 16 categories with ≥ 30 curated
-> examples, 100% Safety Layer consistency. Reproduce with
+> **Current snapshot:** 1,741 curated examples (1,304 `hand_authored` + 437
+> `curated_ingested`), 1,393 train / 348 eval, all 16 categories with ≥ 60
+> curated examples, 100% Safety Layer consistency. Reproduce with
 > `python training/dataset_stats.py --include-ingested`.
 
 ---
@@ -189,8 +189,8 @@ not reproduce, a verdict that cannot be aligned, or a duplicate id.
 
 ## 8. Known gaps
 
-- 500 curated is a strong foundation but still an early corpus; depth per category
-  is ~30, so recall on real-world variety grows with scale.
+- 1,741 curated examples is a strong RC2/v1.1 corpus, but recall on arbitrary
+  real-world variety still grows with broader external coverage and evaluation.
 - Languages are weighted toward Python, JS/TS, and Solidity; Go/Rust/Java/PHP
   depth is lighter.
 - Scanner/CVE imports inherit the upstream tool's biases and false-positive

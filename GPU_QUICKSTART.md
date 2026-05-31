@@ -122,7 +122,7 @@ is validated through the same alignment + safety layers used at serving time:
 python training/prepare_dataset.py --include-ingested --out data/processed
 ```
 
-You should see `445 -> train.jsonl` and `111 -> eval.jsonl` (556 total, current corpus).
+You should see `1393 -> train.jsonl` and `348 -> eval.jsonl` (1,741 total, current corpus).
 
 ---
 
@@ -218,15 +218,16 @@ anymore.
 
 A complete run produces:
 
-- [ ] `data/processed/train.jsonl` and `eval.jsonl` (445 / 111 records, current corpus)
+- [ ] `data/processed/train.jsonl` and `eval.jsonl` (1,393 / 348 records, current corpus)
 - [ ] `outputs/nullsec-s1-qlora/adapter_config.json` + `adapter_model.safetensors`
 - [ ] tokenizer files alongside the adapter
 - [ ] `benchmarks/reports/SUITE.json` with `run_mode: "model"` and non-empty results
 - [ ] `releases/nullsec-1.0/` with `safety_probes.json` showing `passed: true`
 - [ ] `python scripts/validate_claims.py --adapter outputs/nullsec-s1-qlora --report releases/nullsec-1.0/benchmark/SUITE.json --check` passes
 
-Only once those exist will the claim validator permit "trained" and
-"benchmarked" wording. Until then, the honest status remains *training-ready*.
+Only once those artifacts exist locally will the claim validator permit the
+release-backed trained/benchmarked wording for that checkout. The published
+RC2/v1.1 artifacts are available from the `v1.0.0-rc25` GitHub Release.
 
 For the conceptual flow and the meaning of each gate, see
 [`RELEASE_TRAINING.md`](RELEASE_TRAINING.md) and

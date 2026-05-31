@@ -126,7 +126,7 @@ python -m pip install "fsspec==2024.6.1"
 python training/prepare_dataset.py --include-ingested --out data/processed
 ```
 
-Expected: `445 -> train.jsonl`, `111 -> eval.jsonl` (556 total, current corpus).
+Expected: `1393 -> train.jsonl`, `348 -> eval.jsonl` (1,741 total, current corpus).
 
 ## 11. Run preflight
 

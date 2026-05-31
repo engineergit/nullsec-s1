@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Model name** | Nullsec-1 |
-| **Release** | Nullsec-1.0 (`version` 1.0.0) |
+| **Release** | Nullsec-1.0 RC2/v1.1 (`version` 1.0.0), GitHub tag `v1.0.0-rc25` |
 | **Type** | Security-native LLM (specialized security review model) |
 | **Training base** | Qwen/Qwen2.5-Coder-7B-Instruct (Apache 2.0), config-swappable to 14B |
 | **Training method** | QLoRA (4-bit NF4) supervised fine-tuning + deterministic security alignment |
@@ -16,6 +16,8 @@
 Nullsec-1 is a specialized security LLM purpose-built for securing AI-generated applications. It reviews source code and emits a single structured security verdict: vulnerabilities found (typed against the Nullsec taxonomy), severity, exploit scenario, recommended fix, and a secure patch. It is purpose-built for the failure modes of vibecoded software, autonomous agents, and MCP tooling.
 
 **Nullsec-1 is not trained from scratch.** It is fine-tuned from an open code model and aligned with a deterministic Security Alignment Layer and Nullsec Safety Layer. Nullsec-1 proposes a verdict; the Safety Layer enforces production-readiness. The model never has the final word on whether code is safe to ship.
+
+The RC2/v1.1 release (`v1.0.0-rc25`) is distributed as a GitHub Release asset, not committed to the source repository. Its real-model benchmark report records `111/111` outputs, detection F1 `0.9245`, false-safe rate `0.0`, and passing safety probes on the included RC2/v1.1 benchmark suite.
 
 ## Intended use
 
@@ -51,7 +53,7 @@ Supervised fine-tuning with completion-only loss: given a system instruction def
 
 ## Limitations and risks
 
-- **Initial seed dataset.** Out of the box, training uses an initial seed dataset intended to bootstrap the system. Production-grade detection requires scaling the corpus (see `docs/dataset_card.md`).
+- **Release-candidate scope.** RC2/v1.1 is benchmarked on the included 111-case suite; performance on arbitrary real-world systems can differ.
 - **False negatives are possible.** A clean verdict is not proof of safety.
 - **False positives** can block legitimate code; the risk threshold is tunable.
 - **Patch verification is structural.** The benchmark verifies patches are well-formed and do not reintroduce known-insecure patterns; compile/run/test verification is future work.
@@ -59,7 +61,7 @@ Supervised fine-tuning with completion-only loss: given a system instruction def
 
 ## Evaluation
 
-The benchmark suite (`benchmarks/`) measures detection accuracy, false-safe rate, hallucination rate, OWASP coverage, patch correctness, and secure-generation score. Reports are produced only from real runs against real datasets; no precomputed numbers are distributed with the repo. Methodology is documented in the technical report.
+The benchmark suite (`benchmarks/`) measures detection accuracy, false-safe rate, hallucination rate, OWASP coverage, patch correctness, and secure-generation score. Reports are produced only from real runs against real datasets. The RC2/v1.1 report is included in the `v1.0.0-rc25` GitHub Release assets. Methodology is documented in the technical report.
 
 ## Provenance and reproducibility
 
