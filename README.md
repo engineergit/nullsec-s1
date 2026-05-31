@@ -50,9 +50,6 @@ The source checkout alone is training-ready; the published RC2/v1.1 release arti
 - [Corpus status](#corpus-status)
 - [Training workflow](#training-workflow)
 - [Release pipeline](#release-pipeline)
-- [Honest Limitations](#honest-limitations)
-- [Roadmap](#roadmap)
-- [What Nullsec S1 does not claim](#what-nullsec-s1-does-not-claim)
 - [Contributing](#contributing)
 - [Security](#security)
 
@@ -516,51 +513,6 @@ tests/                     deterministic-layer test suite (no GPU)
 docs/                      architecture · system overview · safety layer · corpus · roadmap
 .github/                   CI security gate · issue templates · PR template
 ```
-
----
-
-## Honest Limitations
-
-- RC2/v1.1 is a candidate release measured on the included 111-case benchmark suite. "Production-ready" means **passed the Nullsec internal RC2/v1.1 release gate on that suite**, not a guarantee for every production system.
-- Independent review is still recommended before relying on any security model for critical production systems.
-- No "first", "only", or "best" claims are made here.
-- Benchmark performance does not guarantee every vulnerability will be detected in arbitrary real-world code.
-- A clean verdict reduces risk; it does not prove the absence of vulnerabilities.
-
----
-
-## Roadmap
-
-| Phase | Milestone | State |
-|-------|-----------|-------|
-| 0 | Corpus + safety foundation | ✅ done |
-| 1 | QLoRA training run | ✅ done |
-| 2 | Real-model benchmark | ✅ done |
-| 3 | RC2/v1.1 release assets | ✅ done |
-| 4 | Hosted web scanner at `s1.trynullsec.com` | planned |
-| 5 | API backend for scans | planned |
-| 6 | GitHub Action / PR guard | planned |
-| 7 | CLI scanner hardening | planned |
-| 8 | Larger benchmark suite | planned |
-| 9 | More framework coverage | planned |
-| 10 | MCP / tool-risk runtime integration | planned |
-
-Full detail and exit criteria per phase: [`docs/ROADMAP.md`](docs/ROADMAP.md).
-
----
-
-## What Nullsec S1 does not claim
-
-To keep this project rigorous rather than exaggerated, the following are **explicitly not claimed** today:
-
-- Nullsec S1 is **not** trained from scratch (it fine-tunes an open code model).
-- It is **not** a replacement for human security review, SAST/DAST, or a security team.
-- It is **not** guaranteed to catch every vulnerability; a clean verdict reduces but does not eliminate risk.
-- "First / only / best" claims cannot be validated from repo artifacts and are not made here.
-
-Full statement: [`docs/NON_CLAIMS.md`](docs/NON_CLAIMS.md). These constraints are enforced in code by `scripts/validate_claims.py`.
-
----
 
 ## Contributing
 
