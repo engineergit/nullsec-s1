@@ -1,0 +1,72 @@
+rules:
+  - id: nullsec.exposed-secret
+    message: Potential hardcoded secret or credential
+    languages: [generic]
+    severity: ERROR
+    pattern-regex: "(sk_live_|sk-|AKIA[0-9A-Z]{12,}|service_role|PRIVATE KEY|xoxb-|ghp_|whsec_)"
+
+  - id: nullsec.sql-injection
+    message: User-controlled input appears concatenated into SQL
+    languages: [generic]
+    severity: ERROR
+    pattern-regex: "(SELECT|UPDATE|DELETE|INSERT).*(\\+|%|\\$\\{|f\\\")"
+
+  - id: nullsec.xss-dangerously-set-html
+    message: Raw HTML rendering sink
+    languages: [generic]
+    severity: ERROR
+    pattern-regex: "(dangerouslySetInnerHTML|innerHTML\\s*=|v-html|th:utext|<%-|unsafeHTML)"
+
+  - id: nullsec.ssrf-user-controlled-fetch
+    message: Server-side fetch/request on a variable URL
+    languages: [generic]
+    severity: ERROR
+    pattern-regex: "(requests\\.get\\(|fetch\\(|urlopen\\(|httpx\\.get\\().*(url|URL|req|request|body|query|params)"
+
+  - id: nullsec.command-injection-shell
+    message: Shell/OS command execution on variable input
+    languages: [generic]
+    severity: ERROR
+    pattern-regex: "(os\\.system|os\\.popen|exec\\(|execSync|shell=True|sh -c|bash -c|Runtime\\.getRuntime\\(\\)\\.exec)"
+
+  - id: nullsec.dangerous-shell-curl-pipe
+    message: Remote script piped into shell
+    languages: [generic]
+    severity: WARNING
+    pattern-regex: "(curl|wget).*(\\|\\s*(sh|bash|python|node))"
+
+  - id: nullsec.dangerous-shell-chmod-777
+    message: World-writable recursive permissions
+    languages: [generic]
+    severity: WARNING
+    pattern-regex: "chmod\\s+(-R\\s+)?(777|a\\+rwx)"
+
+  - id: nullsec.unsafe-admin-route
+    message: Potential exposed admin/debug route
+    languages: [generic]
+    severity: ERROR
+    pattern-regex: "(/admin|/debug|/internal|/cron|admin|debug).*(delete|wipe|purge|exec|run|reindex|role|migrate|reset)"
+
+  - id: nullsec.missing-rate-limit
+    message: Auth/code endpoint lacks obvious rate-limit marker
+    languages: [generic]
+    severity: WARNING
+    pattern-regex: "(/login|otp|verify|reset|sendCode|sendOtp|magic)"
+
+  - id: nullsec.unsafe-file-upload
+    message: File upload/path write with client-controlled filename
+    languages: [generic]
+    severity: ERROR
+    pattern-regex: "(save\\(|writeFile|writeFileSync|FileResponse|putObject|move_uploaded_file).*?(filename|originalname|name|path)"
+
+  - id: nullsec.dependency-risk-postinstall
+    message: Package install lifecycle script or mutable dependency risk
+    languages: [generic]
+    severity: WARNING
+    pattern-regex: "(postinstall|preinstall|prepare).*?(curl|wget|bash|sh|node -e|latest|\\*)"
+
+  - id: nullsec.env-exposure
+    message: Environment/config exposure
+    languages: [generic]
+    severity: ERROR
+    pattern-regex: "(process\\.env|os\\.environ|dict\\(os\\.environ\\)|DEBUG\\s*=\\s*True|public-read|allUsers|autoindex on)"

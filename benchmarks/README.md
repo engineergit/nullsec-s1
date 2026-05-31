@@ -41,6 +41,28 @@ python benchmarks/run_all.py --mode replay --replay captured.jsonl
 
 Reports are written to `benchmarks/reports/` (git-ignored). Every report carries a `provenance` block: model name, version, fingerprint, taxonomy version, run mode, adapter, dataset, and UTC timestamp — so any number can be traced to the exact Nullsec-1 release and dataset that produced it.
 
+## Baselines
+
+Baseline runners live under `benchmarks/baselines/`:
+
+```bash
+# Base model, no Nullsec adapter (GPU required)
+python benchmarks/baselines/base_qwen.py --mode model
+
+# Semgrep static-analysis baseline (CPU; requires semgrep)
+python -m pip install semgrep
+python benchmarks/baselines/semgrep_baseline.py
+
+# Markdown comparison from generated reports
+python benchmarks/compare_baselines.py \
+  --nullsec benchmarks/reports/SUITE.json \
+  --base benchmarks/reports/baselines/qwen2_5_coder_7b/SUITE.json \
+  --semgrep benchmarks/reports/baselines/semgrep/SUITE.json
+```
+
+Generated baseline reports are written under `benchmarks/reports/baselines/` and
+are not committed by default. See [`docs/EVALS.md`](../docs/EVALS.md).
+
 ## Datasets
 
 `datasets/detection.json` is the labeled corpus: each case has `code`, `expected_categories`, `expected_min_severity`, `expected_production_ready`, and (where applicable) an `owasp` tag. It is part of the initial seed and is meant to grow with the ingestion pipeline; benchmark strength scales with corpus breadth.
