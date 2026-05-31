@@ -175,6 +175,8 @@ generated reports remain ignored under `benchmarks/reports/`.
 | Nullsec-1 | 111 | 110 | 0.9423 | 0.9074 | 0.9245 | 0.0 | 0.0667 | RC2/v1.1 release or local run |
 | Qwen2.5-Coder-7B-Instruct (base, no Nullsec adapter) | 111 | 4 | 0.3333 | 0.0093 | 0.018 | 0.0 | 0.5 | base model, no Nullsec adapter |
 | Semgrep (local rules baseline) | 111 | 111 | 0.8627 | 0.4074 | 0.5535 | 0.5625 | 0.3333 | static rules; partial category coverage |
+| Claude API baseline (claude-opus-4-8) | 111 | 68 | 0.8889 | 0.5185 | 0.655 | 0.0 | 0.1429 | hosted API baseline; model id/date in report |
+| OpenAI/Codex API baseline (gpt-5.3-codex) | 111 | 105 | 0.6169 | 0.8796 | 0.7252 | 0.0 | 0.6 | hosted API baseline; model id/date in report |
 
 ### Output-count note
 
@@ -195,6 +197,10 @@ output was not alignable for scoring, so the comparison table shows `110`.
   category coverage and lower recall on this benchmark. This is a local-rules
   Semgrep baseline on the Nullsec benchmark, not a general claim about Semgrep
   quality.
+- **Claude Opus 4.8** has high precision but lower recall and fewer analyzable
+  structured outputs on this benchmark.
+- **OpenAI/Codex** has high recall but lower precision and a higher hallucination
+  rate on this benchmark.
 
 ## Limitations
 
@@ -205,8 +211,10 @@ output was not alignable for scoring, so the comparison table shows `110`.
 - Results should be reproduced from the scripts above; do not hand-enter metrics.
 - Semgrep is not expected to cover all categories and should be interpreted as a
   static-analysis baseline, not a security LLM.
-- Frontier/API model baselines such as Claude, GPT, or other hosted models are
-  optional and must be generated from scripts with exact model IDs recorded.
+- Provider API models can change over time. Exact model IDs and run dates are
+  recorded in generated reports.
+- Frontier/API baseline numbers here are benchmark-run outputs, not general
+  claims about those providers.
 - This comparison does not prove universal vulnerability detection performance.
 - Do not claim Nullsec-S1 beats another model or tool unless the comparison
   script output proves it.
