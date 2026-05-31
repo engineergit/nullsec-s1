@@ -81,8 +81,8 @@ The RC2/v1.1 release artifacts include a `run_mode: "model"` benchmark over the 
 | detection F1 | `0.9245` |
 | false_safe_rate | `0.0` |
 | safety probes | `passed` |
-| production-ready | `ALLOWED` |
-| production-ready RC2/v1.1 | `ALLOWED` |
+| production-ready | `ALLOWED` by the Nullsec internal release gate on the included benchmark suite |
+| production-ready RC2/v1.1 | `ALLOWED` by the Nullsec internal release gate on the included 111-case benchmark suite |
 
 These numbers are tied to the [`v1.0.0-rc25` release artifacts](https://github.com/trynullsec/nullsec-s1/releases/tag/v1.0.0-rc25).
 
@@ -184,7 +184,7 @@ python scripts/validate_claims.py \
   --check
 ```
 
-This verifies that public claims match the adapter, benchmark report, safety probes, and release bundle on disk.
+This verifies that local public claims match the downloaded adapter, benchmark report, safety probes, and release bundle on disk. A source-only checkout may show artifact-gated claims as unavailable until those release assets are unpacked locally.
 
 ## Model Architecture
 
@@ -445,7 +445,7 @@ A complete, beginner-friendly walkthrough — choosing a GPU box, disk requireme
 
 ---
 
-## Benchmark workflow
+## Benchmark workflow for reproduction / development
 
 The benchmark suite measures detection accuracy, false-safe rate, hallucination rate, OWASP coverage, patch correctness (structural), and a secure-generation score. It reports numbers only from real runs. The RC2/v1.1 real-model report ships as a GitHub Release asset under `v1.0.0-rc25`; generated benchmark reports are not committed to source.
 
@@ -461,9 +461,9 @@ A case with no model output is recorded as a real miss, never a synthetic pass. 
 
 ---
 
-## Release pipeline
+## Release pipeline for reproduction / development
 
-A release bundle is produced only when the model, its outputs, and the Safety Layer are all real:
+The release pipeline is how maintainers reproduce a release bundle from real local artifacts:
 
 ```bash
 python scripts/release_candidate.py --adapter outputs/nullsec-s1-qlora --dataset detection.json
@@ -471,7 +471,7 @@ python scripts/validate_claims.py --adapter outputs/nullsec-s1-qlora \
     --report releases/nullsec-1.0/benchmark/SUITE.json --check
 ```
 
-`release_candidate.py` aborts (writing nothing) if the adapter is missing, the model fails to load, no outputs are produced, any report section is empty, or any Safety Layer probe is bypassed. Only after it succeeds with a trained adapter and a real-model report will `validate_claims.py` permit the corresponding public claims. The full path is documented in [`RELEASE_TRAINING.md`](RELEASE_TRAINING.md).
+`release_candidate.py` aborts (writing nothing) if the adapter is missing, the model fails to load, no outputs are produced, any report section is empty, or any Safety Layer probe is bypassed. The published RC2/v1.1 artifact already passed this path; running it again is a reproducibility workflow. The full path is documented in [`RELEASE_TRAINING.md`](RELEASE_TRAINING.md).
 
 ---
 
@@ -508,7 +508,7 @@ docs/                      architecture · system overview · safety layer · co
 
 ## Honest Limitations
 
-- RC2/v1.1 is a candidate release measured on the included 111-case benchmark suite.
+- RC2/v1.1 is a candidate release measured on the included 111-case benchmark suite. "Production-ready" means **passed the Nullsec internal RC2/v1.1 release gate on that suite**, not a guarantee for every production system.
 - Independent review is still recommended before relying on any security model for critical production systems.
 - No "first", "only", or "best" claims are made here.
 - Benchmark performance does not guarantee every vulnerability will be detected in arbitrary real-world code.

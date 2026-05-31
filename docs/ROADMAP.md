@@ -38,22 +38,9 @@ box, `validate_claims.py` permitted `trained model` against those artifacts.
 
 The benchmark suite was run against the live RC1 model (`run_mode: "model"`).
 
-**RC1 reported results** (source of truth: the `SUITE.json` in the published RC1
-Release bundle — these numbers are not re-verified by this source checkout):
-
-| Metric | RC1 |
-|--------|-----|
-| detection F1 | 0.9091 |
-| precision | 1.0 |
-| recall | 0.8333 |
-| false_safe_rate | 0.0 |
-| hallucination_rate | 0.0 |
-| patch_correctness | 0.7 |
-| secure_generation_score | 0.6 |
-| OWASP coverage | 1.0 |
-
 RC1 used the previous 12-case benchmark. RC2/v1.1 supersedes it with the expanded
-111-case suite and the `v1.0.0-rc25` release artifacts.
+111-case suite and the `v1.0.0-rc25` release artifacts, so current public
+benchmark claims should cite RC2/v1.1 rather than historical RC1 numbers.
 
 ---
 

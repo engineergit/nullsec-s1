@@ -73,6 +73,16 @@ guarantee for arbitrary real-world code. (Note: the verdict field
 `production_ready` is a separate, well-defined per-analysis decision computed by
 the Safety Layer; it is not an absolute security guarantee.)
 
+## Production-ready scope
+
+When this repo says RC2/v1.1 is production-ready, it means:
+
+> RC2/v1.1 passed the Nullsec internal release gate on the included 111-case
+> benchmark suite.
+
+It does **not** mean every production system is guaranteed secure, every
+vulnerability will be found, or independent security review is unnecessary.
+
 ---
 
 ## How this is enforced

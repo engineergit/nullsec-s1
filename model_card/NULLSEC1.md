@@ -18,7 +18,7 @@ Nullsec-1 is a specialized security LLM purpose-built for securing AI-generated 
 
 **Nullsec-1 is not trained from scratch.** It is fine-tuned from an open code model and aligned with a deterministic Security Alignment Layer and Nullsec Safety Layer. Nullsec-1 proposes a verdict; the Safety Layer enforces production-readiness. The model never has the final word on whether code is safe to ship.
 
-The RC2/v1.1 release (`v1.0.0-rc25`) is distributed as a GitHub Release asset, not committed to the source repository. Its real-model benchmark report records `111/111` outputs, detection F1 `0.9245`, false-safe rate `0.0`, and passing safety probes on the included RC2/v1.1 benchmark suite.
+This model card describes the published RC2/v1.1 release assets (`v1.0.0-rc25`), not a source-only checkout. The trained adapter is distributed as a GitHub Release asset and is not committed to the source repository. Its real-model benchmark report records `111/111` outputs, detection F1 `0.9245`, false-safe rate `0.0`, and passing safety probes on the included RC2/v1.1 benchmark suite.
 
 ## Architecture and loading
 
@@ -60,6 +60,8 @@ The model's `production_ready` output is advisory. The Nullsec Safety Layer (`nu
 - no finding contradicts a dimension reported as `pass`.
 
 Severity and risk are floored upward to the worst finding, so Nullsec-1 cannot under-report.
+
+For RC2/v1.1, "production-ready" means the released adapter passed the Nullsec internal release gate on the included 111-case benchmark suite. It is not a guarantee for arbitrary real-world software and does not remove the need for independent review on critical systems.
 
 ## Training objective
 

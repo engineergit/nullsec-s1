@@ -6,7 +6,9 @@ before, start here.
 
 If you only want to run the released model, download the `v1.0.0-rc25` GitHub
 Release artifact, unpack it, set `NULLSEC_ADAPTER_PATH=outputs/nullsec-s1-qlora`,
-and run `python inference.py --file examples/unsafe-next-admin-route.ts`.
+and run `python inference.py --file examples/unsafe-next-admin-route.ts`. The GPU
+training flow below is for reproducing or continuing the release, not for normal
+release consumption.
 
 > **Why a GPU?** Your laptop can verify the corpus, the deterministic safety
 > layers, and the adversarial probes (that is what `pytest` and the validators
@@ -86,11 +88,11 @@ python -m pip install --upgrade pip setuptools wheel
 
 ---
 
-## 6. Install the training dependencies (known-good CUDA 12.1 stack)
+## 6. Install the training dependencies
 
-The base install (`.[dev]`) has no GPU stack. For training, install the **pinned
-CUDA 12.1 torch build first** (the build that completed RC1 on RunPod A100 80GB),
-then the rest of the stack so nothing replaces torch:
+The base install (`.[dev]`) has no GPU stack. RC2/v1.1 was finalized on B200 /
+CUDA 12.8. Earlier A100/RC1 runs used the CUDA 12.1 stack below; choose the torch
+build that matches your GPU image/driver, then install the rest of the stack:
 
 ```bash
 python -m pip install -e ".[dev]"
@@ -105,11 +107,11 @@ python -c "import torch; print(torch.__version__, torch.version.cuda, torch.cuda
 # expect e.g.  2.5.1+cu121 12.1 True
 ```
 
-> **A CUDA 13 / Torch 2.12 wheel failed on the RunPod driver during RC1.** If
-> `torch.cuda.is_available()` is `False` while `nvidia-smi` shows a GPU, that is a
-> Torch/CUDA mismatch — reinstall the cu121 line above. `preflight_train.py`
-> detects this and prints the exact fix. If `datasets` raises an fsspec error,
-> pin `pip install "fsspec==2024.6.1"`.
+> **B200 / CUDA 12.8 note.** The final RC2/v1.1 run used a B200 setup with a
+> CUDA 12.8-compatible torch build. If `torch.cuda.is_available()` is `False`
+> while `nvidia-smi` shows a GPU, that is a Torch/CUDA mismatch. Use a torch
+> wheel matching the host driver, then rerun `training/preflight_train.py`.
+> If `datasets` raises an fsspec error, pin `pip install "fsspec==2024.6.1"`.
 
 If `bitsandbytes` complains, make sure the box actually has an NVIDIA driver and
 CUDA runtime (`nvidia-smi` should print your GPU). Most rented GPU images ship

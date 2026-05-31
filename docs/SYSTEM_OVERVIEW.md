@@ -66,7 +66,10 @@ is exactly one enforcement path.**
 
 RC2/v1.1 is distributed as GitHub Release `v1.0.0-rc25`, not as committed source
 files. The release artifact contains the trained adapter and reports; the source
-repository contains the reproducibility pipeline.
+repository contains the training pipeline, corpus, benchmark harness,
+documentation, and validation gates. A source-only checkout can run the data and
+safety checks, but artifact-gated trained/benchmarked claims require unpacking
+the release assets locally.
 
 ```mermaid
 flowchart TD
@@ -206,7 +209,8 @@ the project — see [`NON_CLAIMS.md`](NON_CLAIMS.md) and
 ## 10. Current limitations
 
 - **Release-candidate scope.** RC2/v1.1 was evaluated on the included 111-case
-  benchmark suite. Performance on arbitrary real-world systems can differ.
+  benchmark suite and passed the Nullsec internal release gate there. Performance
+  on arbitrary real-world systems can differ.
 - **Corpus depth.** 1,741 curated examples is a strong RC2/v1.1 corpus, but
   recall on real-world variety grows with broader coverage.
 - **Patch verification is structural.** The benchmark checks that patches are

@@ -13,15 +13,16 @@ For the provider-agnostic version (Lambda, Vast, your own box) see
 If you only need inference, you do not need to retrain: download the
 `v1.0.0-rc25` GitHub Release artifact, unpack it, set
 `NULLSEC_ADAPTER_PATH=outputs/nullsec-s1-qlora`, and run `python inference.py`.
+This RunPod guide is for reproducing or continuing training.
 
-> ### ✅ Known-good RC1 setup (this exact setup completed RC1)
+> ### Historical A100 / RC1 setup
 >
-> - **GPU:** RunPod **A100 80GB** — worked.
+> - **GPU:** RunPod **A100 80GB** — worked for RC1.
 > - **Template:** an official **PyTorch / CUDA** template — worked.
-> - **Torch:** **`torch==2.5.1+cu121`** (CUDA 12.1 build) — worked.
-> - **What failed:** a **CUDA 13 / Torch 2.12** wheel on the RunPod driver — do
->   not use it. If `torch.cuda.is_available()` is `False` while `nvidia-smi` shows
->   a GPU, you have this mismatch; reinstall the cu121 build (step 9).
+> - **Torch:** **`torch==2.5.1+cu121`** (CUDA 12.1 build) — worked for RC1.
+> - **Final RC2/v1.1 note:** the final release run used a B200 / CUDA 12.8 setup.
+>   Match your torch wheel to the host driver. If `torch.cuda.is_available()` is
+>   `False` while `nvidia-smi` shows a GPU, you have a Torch/CUDA mismatch.
 > - **fsspec:** if `datasets` errors on import, pin `fsspec==2024.6.1` (step 9).
 
 ---
