@@ -85,6 +85,26 @@ The RC2/v1.1 release artifacts include a `run_mode: "model"` benchmark over the 
 
 These numbers are tied to the [`v1.0.0-rc25` release artifacts](https://github.com/trynullsec/nullsec-s1/releases/tag/v1.0.0-rc25).
 
+## Nullsec-S1 benchmark performance
+
+Nullsec-S1 was evaluated on the Nullsec RC2/v1.1 111-case security benchmark for AI-generated applications, agents, MCP tools, Web3 flows, and common application-security failure modes.
+
+On this benchmark, Nullsec-S1 ranked #1 by F1 score against the compared baselines, while keeping false-safe rate at `0.0%` and maintaining substantially lower hallucination/noise than hosted frontier API baselines.
+
+|   Rank | System / Tool                | Evaluated / Analyzable | Precision |    Recall |   F1 Score | False-Safe Rate | Hallucination Rate |
+| -----: | ---------------------------- | ---------------------: | --------: | --------: | ---------: | --------------: | -----------------: |
+| **#1** | **Nullsec-S1**               |          **110 / 111** | **94.2%** | **90.7%** | **0.9245** |        **0.0%** |           **6.7%** |
+|     #2 | OpenAI/Codex `gpt-5.3-codex` |              105 / 111 |     61.7% |     88.0% |     0.7252 |            0.0% |              60.0% |
+|     #3 | Claude Opus 4.8              |               68 / 111 |     88.9% |     51.9% |     0.6550 |            0.0% |              14.3% |
+|     #4 | Semgrep local rules baseline |              111 / 111 |     86.3% |     40.7% |     0.5535 |           56.3% |              33.3% |
+|     #5 | Qwen2.5-Coder-7B base model  |                4 / 111 |     33.3% |      0.9% |     0.0180 |            0.0% |              50.0% |
+
+**Why this matters:**
+Nullsec-S1 is not just the base model prompted differently. The adapter was trained to produce structured, security-specific JSON verdicts with stronger format adherence, higher recall, higher precision, and lower hallucination on this benchmark.
+
+**Important scope:**
+These results are measured on the Nullsec RC2/v1.1 111-case benchmark. They do not guarantee universal vulnerability detection or replace independent security review. `111/111` raw outputs were produced by the release benchmark; `110/111` above refers to analyzable/scored structured outputs in the comparison report.
+
 ## What Nullsec-S1 Detects
 
 Nullsec-S1 emits structured findings for the security taxonomy in `taxonomy/taxonomy.json`, including:
