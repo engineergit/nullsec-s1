@@ -31,4 +31,17 @@ PARTIAL_OR_UNSUPPORTED_CATEGORIES = [
 
 
 def category_for_rule(rule_id: str) -> str | None:
-    return RULE_TO_CATEGORY.get(rule_id)
+    """Return the Nullsec category for a Semgrep rule id.
+
+    Semgrep prefixes local rule ids with the config path (for example
+    `benchmarks.baselines.nullsec.sql-injection`). The rules file itself uses
+    `nullsec.sql-injection`. Normalize both shapes so findings are not lost
+    before scoring.
+    """
+    if rule_id in RULE_TO_CATEGORY:
+        return RULE_TO_CATEGORY[rule_id]
+    marker = "nullsec."
+    if marker in rule_id:
+        normalized = rule_id[rule_id.index(marker) :]
+        return RULE_TO_CATEGORY.get(normalized)
+    return None
