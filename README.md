@@ -208,7 +208,7 @@ See [`docs/PROMPT_FORMAT.md`](docs/PROMPT_FORMAT.md) for the canonical system pr
 
 ## Evaluation and Baselines
 
-Baseline comparison infrastructure is available in [`docs/EVALS.md`](docs/EVALS.md). It supports reproducible comparisons against:
+Baseline comparison against base `Qwen/Qwen2.5-Coder-7B-Instruct` and Semgrep is documented in [`docs/EVALS.md`](docs/EVALS.md). It supports reproducible comparisons against:
 
 - the base `Qwen/Qwen2.5-Coder-7B-Instruct` model without the Nullsec adapter;
 - Semgrep with local benchmark rules and explicit coverage limitations.

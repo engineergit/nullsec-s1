@@ -99,13 +99,48 @@ python benchmarks/compare_baselines.py \
 The generated comparison is a report artifact and should not be committed unless
 explicitly approved.
 
+## Baseline comparison
+
+Generated with `benchmarks/compare_baselines.py` from local reports. Raw
+generated reports remain ignored under `benchmarks/reports/`.
+
+| System / tool | Total cases | Outputs / analyzable | Precision | Recall | F1 | false_safe_rate | hallucination_rate | Notes / coverage limits |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Nullsec-1 | 111 | 110 | 0.9423 | 0.9074 | 0.9245 | 0.0 | 0.0667 | RC2/v1.1 release or local run |
+| Qwen2.5-Coder-7B-Instruct (base, no Nullsec adapter) | 111 | 4 | 0.3333 | 0.0093 | 0.018 | 0.0 | 0.5 | base model, no Nullsec adapter |
+| Semgrep (local rules baseline) | 111 | 111 | 0.8627 | 0.4074 | 0.5535 | 0.5625 | 0.3333 | static rules; partial category coverage |
+
+### Output-count note
+
+The GitHub Release records `111/111` raw model outputs. The comparison table's
+`Outputs / analyzable` column uses `results.summary.total_outputs` from the
+report, which counts outputs that were alignable and scorable as structured
+verdicts by the benchmark pipeline. For the Nullsec-S1 report used here, one raw
+output was not alignable for scoring, so the comparison table shows `110`.
+
+### Interpretation
+
+- **Nullsec-S1** shows stronger structured security-verdict performance on this
+  repo-authored benchmark.
+- **Base Qwen2.5-Coder-7B-Instruct** mostly failed to produce scorable
+  Nullsec-style JSON security verdicts. This shows why the fine-tune and
+  deterministic alignment layer matter for this output format and task.
+- **Semgrep** detects some static patterns with high precision, but has partial
+  category coverage and lower recall on this benchmark. This is a local-rules
+  Semgrep baseline on the Nullsec benchmark, not a general claim about Semgrep
+  quality.
+
 ## Limitations
 
 - The benchmark is security-specific and repo-authored; it is not an independent
   third-party benchmark.
 - Baseline comparisons are meaningful only when all systems are run on the same
   dataset version.
+- Results should be reproduced from the scripts above; do not hand-enter metrics.
 - Semgrep is not expected to cover all categories and should be interpreted as a
   static-analysis baseline, not a security LLM.
+- Frontier/API model baselines such as Claude, GPT, or other hosted models are
+  not included yet.
+- This comparison does not prove universal vulnerability detection performance.
 - Do not claim Nullsec-S1 beats another model or tool unless the comparison
   script output proves it.
