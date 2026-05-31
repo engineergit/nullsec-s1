@@ -44,6 +44,12 @@ def main() -> int:
     ap.add_argument("--resume", action="store_true", help="reuse cached raw_outputs.jsonl entries")
     ap.add_argument("--sleep", type=float, default=0.0, help="seconds to sleep between requests")
     ap.add_argument("--max-tokens", type=int, default=1536)
+    ap.add_argument(
+        "--temperature",
+        type=float,
+        default=0.0,
+        help="sampling temperature; retried without temperature if the provider/model rejects it",
+    )
     args = ap.parse_args()
 
     api_key = require_env("OPENAI_API_KEY")
@@ -56,30 +62,67 @@ def main() -> int:
         raise SystemExit("openai package is required. Install with: python -m pip install openai") from e
 
     client = OpenAI(api_key=api_key)
+    temperature_state = {
+        "requested": args.temperature,
+        "used": args.temperature is not None,
+        "note": "temperature=0 used where supported",
+    }
 
     def call(system_prompt: str, prompt: str) -> str:
         try:
-            resp = client.responses.create(
+            kwargs = dict(
                 model=args.model,
-                temperature=0,
                 max_output_tokens=args.max_tokens,
                 input=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt},
                 ],
             )
+            if args.temperature is not None:
+                kwargs["temperature"] = args.temperature
+            try:
+                resp = client.responses.create(**kwargs)
+            except Exception as e:
+                if "temperature" in kwargs and "temperature" in str(e).lower() and (
+                    "unsupported" in str(e).lower()
+                    or "not support" in str(e).lower()
+                    or "not compatible" in str(e).lower()
+                    or "deprecated" in str(e).lower()
+                ):
+                    kwargs.pop("temperature", None)
+                    temperature_state["used"] = False
+                    temperature_state["note"] = "temperature omitted after provider rejected/deprecated it"
+                    resp = client.responses.create(**kwargs)
+                else:
+                    raise
             return _extract_response_text(resp)
         except AttributeError:
             # Compatibility with older SDKs that only expose chat.completions.
-            resp = client.chat.completions.create(
+            kwargs = dict(
                 model=args.model,
-                temperature=0,
                 max_tokens=args.max_tokens,
                 messages=[
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt},
                 ],
             )
+            if args.temperature is not None:
+                kwargs["temperature"] = args.temperature
+            try:
+                resp = client.chat.completions.create(**kwargs)
+            except Exception as e:
+                if "temperature" in kwargs and "temperature" in str(e).lower() and (
+                    "unsupported" in str(e).lower()
+                    or "not support" in str(e).lower()
+                    or "not compatible" in str(e).lower()
+                    or "deprecated" in str(e).lower()
+                ):
+                    kwargs.pop("temperature", None)
+                    temperature_state["used"] = False
+                    temperature_state["note"] = "temperature omitted after provider rejected/deprecated it"
+                    resp = client.chat.completions.create(**kwargs)
+                else:
+                    raise
             return resp.choices[0].message.content.strip()
 
     run_api_baseline(
@@ -91,7 +134,11 @@ def main() -> int:
         resume=args.resume,
         sleep_s=args.sleep,
         call_model=call,
-        provenance={"api": "openai_responses_or_chat", "max_tokens": args.max_tokens},
+        provenance={
+            "api": "openai_responses_or_chat",
+            "max_tokens": args.max_tokens,
+            "temperature": temperature_state,
+        },
     )
     return 0
 

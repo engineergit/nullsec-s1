@@ -143,6 +143,11 @@ Provider models can change over time. Reports record the exact provider, model
 id, run date, dataset, and raw-output cache path. Do not compare hosted-model
 results without those fields.
 
+Hosted model runners use `temperature=0` where the provider/model supports it.
+Some models reject or deprecate explicit temperature parameters; in that case the
+runner retries once without `temperature` and records the omission in report
+metadata.
+
 ## Comparison table
 
 Generate a Markdown comparison from existing reports:

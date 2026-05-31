@@ -32,6 +32,12 @@ def main() -> int:
     ap.add_argument("--resume", action="store_true", help="reuse cached raw_outputs.jsonl entries")
     ap.add_argument("--sleep", type=float, default=0.0, help="seconds to sleep between requests")
     ap.add_argument("--max-tokens", type=int, default=1536)
+    ap.add_argument(
+        "--temperature",
+        type=float,
+        default=None,
+        help="optional sampling temperature; omitted by default because some Anthropic models reject/deprecate it",
+    )
     args = ap.parse_args()
 
     api_key = require_env("ANTHROPIC_API_KEY")
@@ -44,15 +50,35 @@ def main() -> int:
         raise SystemExit("anthropic package is required. Install with: python -m pip install anthropic") from e
 
     client = anthropic.Anthropic(api_key=api_key)
+    temperature_state = {
+        "requested": args.temperature,
+        "used": args.temperature is not None,
+        "note": "temperature omitted because model/API may not support it"
+        if args.temperature is None
+        else "temperature requested by CLI",
+    }
 
     def call(system_prompt: str, prompt: str) -> str:
-        msg = client.messages.create(
+        kwargs = dict(
             model=args.model,
             max_tokens=args.max_tokens,
-            temperature=0,
             system=system_prompt,
             messages=[{"role": "user", "content": prompt}],
         )
+        if args.temperature is not None:
+            kwargs["temperature"] = args.temperature
+        try:
+            msg = client.messages.create(**kwargs)
+        except Exception as e:
+            if "temperature" in kwargs and "temperature" in str(e).lower() and (
+                "deprecated" in str(e).lower() or "not support" in str(e).lower()
+            ):
+                kwargs.pop("temperature", None)
+                temperature_state["used"] = False
+                temperature_state["note"] = "temperature omitted after provider rejected/deprecated it"
+                msg = client.messages.create(**kwargs)
+            else:
+                raise
         parts = []
         for block in msg.content:
             if getattr(block, "type", None) == "text":
@@ -68,7 +94,11 @@ def main() -> int:
         resume=args.resume,
         sleep_s=args.sleep,
         call_model=call,
-        provenance={"api": "anthropic_messages", "max_tokens": args.max_tokens},
+        provenance={
+            "api": "anthropic_messages",
+            "max_tokens": args.max_tokens,
+            "temperature": temperature_state,
+        },
     )
     return 0
 
