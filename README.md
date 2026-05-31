@@ -16,6 +16,17 @@ Nullsec-S1 analyzes, explains, patches, and gates AI-generated software before i
 
 This is not a scanner. It is a security system for AI-generated software: a specialized security model wrapped in a deterministic enforcement layer that recomputes production-readiness instead of trusting the model's raw claim.
 
+**Nullsec-S1 RC2/v1.1 is released as a GitHub Release asset.** The source repository contains the training pipeline, corpus, benchmark harness, and validation gates. The trained adapter is intentionally not committed to git; download the RC2/v1.1 release artifact from [`v1.0.0-rc25`](https://github.com/trynullsec/nullsec-s1/releases/tag/v1.0.0-rc25) to reproduce the verified benchmark state.
+
+| State | Location | Meaning |
+|-------|----------|---------|
+| Source checkout | `main` | training pipeline, corpus, benchmark code, docs |
+| Trained adapter | GitHub Release [`v1.0.0-rc25`](https://github.com/trynullsec/nullsec-s1/releases/tag/v1.0.0-rc25) | RC2/v1.1 QLoRA adapter |
+| Benchmark reports | GitHub Release [`v1.0.0-rc25`](https://github.com/trynullsec/nullsec-s1/releases/tag/v1.0.0-rc25) | real-model benchmark artifacts |
+| Local claim validation | requires downloaded/unpacked release artifacts | source-only checkout may show artifact-gated claims as unavailable |
+
+The source checkout alone is training-ready; the published RC2/v1.1 release artifact is trained, benchmarked, safety-layer-enforced, and RC2/v1.1 production-ready according to the included validation gates.
+
 ---
 
 ## Table of contents
@@ -354,7 +365,7 @@ A complete, beginner-friendly walkthrough — choosing a GPU box, disk requireme
 
 ## Benchmark workflow
 
-The benchmark suite measures detection accuracy, false-safe rate, hallucination rate, OWASP coverage, patch correctness (structural), and a secure-generation score. **It reports numbers only from real runs** — this repo ships none.
+The benchmark suite measures detection accuracy, false-safe rate, hallucination rate, OWASP coverage, patch correctness (structural), and a secure-generation score. It reports numbers only from real runs. The RC2/v1.1 real-model report ships as a GitHub Release asset under `v1.0.0-rc25`; generated benchmark reports are not committed to source.
 
 ```bash
 # against the live model (GPU):
@@ -364,7 +375,7 @@ python benchmarks/run_all.py --mode model --adapter outputs/nullsec-s1-qlora
 python benchmarks/run_all.py --mode replay --replay path/to/captured.jsonl
 ```
 
-A case with no model output is recorded as a real miss, never a synthetic pass. Until a real run exists, the claim validator forbids any "benchmarked" or "evaluated" wording.
+A case with no model output is recorded as a real miss, never a synthetic pass. In a source-only checkout, artifact-gated claims remain unavailable until the trained adapter and release report are downloaded/unpacked locally.
 
 ---
 
