@@ -69,6 +69,8 @@ def main() -> int:
     ap.add_argument("--nullsec", help="Nullsec-S1 SUITE.json")
     ap.add_argument("--base", help="base Qwen SUITE.json")
     ap.add_argument("--semgrep", help="Semgrep SUITE.json")
+    ap.add_argument("--claude", help="Claude API baseline SUITE.json")
+    ap.add_argument("--openai", help="OpenAI/Codex API baseline SUITE.json")
     ap.add_argument("--out", default=None, help="optional Markdown output path")
     args = ap.parse_args()
 
@@ -77,6 +79,10 @@ def main() -> int:
         row("Base Qwen", load_report(args.base, "base Qwen"), "base model, no Nullsec adapter"),
         row("Semgrep", load_report(args.semgrep, "Semgrep"), "static rules; partial category coverage"),
     ]
+    if args.claude:
+        reports.append(row("Claude", load_report(args.claude, "Claude"), "hosted API baseline; model id/date in report"))
+    if args.openai:
+        reports.append(row("OpenAI/Codex", load_report(args.openai, "OpenAI/Codex"), "hosted API baseline; model id/date in report"))
     md = render(reports)
     if args.out:
         p = Path(args.out)

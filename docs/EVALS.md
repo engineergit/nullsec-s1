@@ -84,6 +84,65 @@ specialized rules). Unsupported categories are documented in the report.
 
 Docker fallback for Semgrep is a future enhancement, not implemented today.
 
+### Claude API
+
+Claude comparisons are optional hosted-model baselines. They require an API key
+and an explicit model id; no default model is hardcoded because provider model
+IDs and dates must be recorded in the report.
+
+Smoke test:
+
+```bash
+export ANTHROPIC_API_KEY=...
+export ANTHROPIC_MODEL=...
+python benchmarks/baselines/claude_api.py --limit 5 --sleep 1
+```
+
+Full run (costs money; run intentionally):
+
+```bash
+python benchmarks/baselines/claude_api.py --sleep 1
+```
+
+Report and raw cache:
+
+```text
+benchmarks/reports/baselines/claude/SUITE.json
+benchmarks/reports/baselines/claude/raw_outputs.jsonl
+```
+
+Use `--resume` to skip already-cached case ids if a run is interrupted.
+
+### OpenAI / Codex API
+
+OpenAI/Codex comparisons are optional hosted-model baselines. They require an API
+key and an explicit model id via `OPENAI_MODEL` or `--model`.
+
+Smoke test:
+
+```bash
+export OPENAI_API_KEY=...
+export OPENAI_MODEL=...
+python benchmarks/baselines/openai_api.py --limit 5 --sleep 1
+```
+
+Full run (costs money; run intentionally):
+
+```bash
+python benchmarks/baselines/openai_api.py --sleep 1
+```
+
+Report and raw cache:
+
+```text
+benchmarks/reports/baselines/openai/SUITE.json
+benchmarks/reports/baselines/openai/raw_outputs.jsonl
+```
+
+Provider models can change over time. Reports record the exact provider, model
+id, run date, dataset, and raw-output cache path. Do not compare hosted-model
+results without those fields.
+
 ## Comparison table
 
 Generate a Markdown comparison from existing reports:
@@ -93,6 +152,8 @@ python benchmarks/compare_baselines.py \
   --nullsec benchmarks/reports/SUITE.json \
   --base benchmarks/reports/baselines/qwen2_5_coder_7b/SUITE.json \
   --semgrep benchmarks/reports/baselines/semgrep/SUITE.json \
+  --claude benchmarks/reports/baselines/claude/SUITE.json \
+  --openai benchmarks/reports/baselines/openai/SUITE.json \
   --out benchmarks/reports/baselines/COMPARISON.md
 ```
 
@@ -140,7 +201,7 @@ output was not alignable for scoring, so the comparison table shows `110`.
 - Semgrep is not expected to cover all categories and should be interpreted as a
   static-analysis baseline, not a security LLM.
 - Frontier/API model baselines such as Claude, GPT, or other hosted models are
-  not included yet.
+  optional and must be generated from scripts with exact model IDs recorded.
 - This comparison does not prove universal vulnerability detection performance.
 - Do not claim Nullsec-S1 beats another model or tool unless the comparison
   script output proves it.
