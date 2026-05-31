@@ -4,88 +4,30 @@
 
 # Nullsec-S1
 
-**An open-source security model purpose-built to audit AI-generated apps, agents, and vibecoded software before they reach production.**
+**Open-source security model purpose-built to audit AI-generated apps, agents, MCP tools, Web3 flows, and vibecoded software.**
 
 [![tests](https://img.shields.io/badge/tests-passing-brightgreen)](#current-verified-state)
 [![release](https://img.shields.io/badge/release-RC2%2Fv1.1-brightgreen)](#current-verified-release)
+[![huggingface](https://img.shields.io/badge/Hugging%20Face-adapter-yellow)](https://huggingface.co/Trynullsec/nullsec-s1)
 [![safety layer](https://img.shields.io/badge/safety%20layer-100%25%20consistent-brightgreen)](#the-security-alignment-layer)
 [![benchmark](https://img.shields.io/badge/benchmark-real--model-blue)](#benchmark-summary)
 [![python](https://img.shields.io/badge/python-3.11%2B-blue)](pyproject.toml)
 
-Nullsec-S1 analyzes, explains, patches, and gates AI-generated software before it reaches production. It combines a trained QLoRA adapter, a curated AI-generated-app failure corpus, structured JSON security verdicts, a deterministic **Security Alignment Layer**, secure patch generation, and a release-validation framework.
+Nullsec-S1 returns final structured JSON security audits: findings, severity, exploit scenario, recommended fix, secure patch, and a deterministic Safety Layer decision.
 
-This is not a scanner. It is a security system for AI-generated software: a specialized security model wrapped in a deterministic enforcement layer that recomputes production-readiness instead of trusting the model's raw claim.
+Quick links: [GitHub Release](https://github.com/trynullsec/nullsec-s1/releases/tag/v1.0.0-rc25) · [Hugging Face adapter](https://huggingface.co/Trynullsec/nullsec-s1) · [Eval docs](docs/EVALS.md) · [Quickstart](#2-5-minute-quickstart)
 
-**Nullsec-S1 RC2/v1.1 is released as a GitHub Release asset.** The source repository contains the training pipeline, corpus, benchmark harness, and validation gates. The trained adapter is intentionally not committed to git; download the RC2/v1.1 release artifact from [`v1.0.0-rc25`](https://github.com/trynullsec/nullsec-s1/releases/tag/v1.0.0-rc25) to reproduce the verified benchmark state. The adapter is also mirrored for discovery on Hugging Face: <https://huggingface.co/Trynullsec/nullsec-s1>.
+Nullsec-S1 RC2/v1.1 ships as a PEFT / QLoRA adapter. The source repo contains training code, corpus, benchmark harness, inference code, and validation gates. The trained adapter is intentionally not committed to git.
 
 | State | Location | Meaning |
 |-------|----------|---------|
 | Source checkout | `main` | training pipeline, corpus, benchmark code, docs |
-| Trained adapter | GitHub Release [`v1.0.0-rc25`](https://github.com/trynullsec/nullsec-s1/releases/tag/v1.0.0-rc25) and Hugging Face mirror [`Trynullsec/nullsec-s1`](https://huggingface.co/Trynullsec/nullsec-s1) | RC2/v1.1 PEFT / QLoRA adapter |
-| Benchmark reports | GitHub Release [`v1.0.0-rc25`](https://github.com/trynullsec/nullsec-s1/releases/tag/v1.0.0-rc25) | real-model benchmark artifacts |
-| Local claim validation | requires downloaded/unpacked release artifacts | source-only checkout may show artifact-gated claims as unavailable |
+| GitHub Release | [`v1.0.0-rc25`](https://github.com/trynullsec/nullsec-s1/releases/tag/v1.0.0-rc25) | source of record for adapter, benchmark reports, metrics, pipeline log |
+| Hugging Face | [`Trynullsec/nullsec-s1`](https://huggingface.co/Trynullsec/nullsec-s1) | public PEFT / QLoRA adapter mirror and model discovery page |
+| Base model | [`Qwen/Qwen2.5-Coder-7B-Instruct`](https://huggingface.co/Qwen/Qwen2.5-Coder-7B-Instruct) | required separately to load the adapter |
+| Local claim validation | downloaded/unpacked release artifacts | source-only checkout may show artifact-gated claims as unavailable |
 
-The source checkout alone is training-ready; the published RC2/v1.1 release artifact is trained, benchmarked, safety-layer-enforced, and RC2/v1.1 production-ready according to the included validation gates.
-
----
-
-## Table of contents
-
-- [Current Verified Release](#current-verified-release)
-- [Benchmark Summary](#benchmark-summary)
-- [What Nullsec-S1 Detects](#what-nullsec-s1-detects)
-- [What This Release Contains](#what-this-release-contains)
-- [How To Use](#how-to-use)
-- [15-Second Developer Quickstart](#15-second-developer-quickstart)
-- [Quick Verification](#quick-verification)
-- [Model Architecture](#model-architecture)
-- [Prompt and Output Format](#prompt-and-output-format)
-- [Integration Status](#integration-status)
-- [Evaluation and Baselines](#evaluation-and-baselines)
-- [Architecture](#architecture)
-- [Why Nullsec S1 exists](#why-nullsec-s1-exists)
-- [Core system components](#core-system-components)
-- [Current verified state](#current-verified-state)
-- [The Security Alignment Layer](#the-security-alignment-layer)
-- [Corpus status](#corpus-status)
-- [Training workflow](#training-workflow)
-- [Release pipeline](#release-pipeline)
-- [Contributing](#contributing)
-- [Security](#security)
-
----
-
-## Current Verified Release
-
-| Field | Value |
-|-------|-------|
-| Current verified release | **RC2/v1.1** |
-| GitHub release tag | [`v1.0.0-rc25`](https://github.com/trynullsec/nullsec-s1/releases/tag/v1.0.0-rc25) |
-| Release title | `Nullsec-S1 RC2/v1.1` |
-| Hugging Face adapter | [`Trynullsec/nullsec-s1`](https://huggingface.co/Trynullsec/nullsec-s1) |
-| Source commit | `c29c7f1` (`Add RC2.5 micro-calibration examples`) |
-| Base model | `Qwen/Qwen2.5-Coder-7B-Instruct` |
-| Fine-tuning method | QLoRA |
-| Enforcement | Deterministic Security Alignment + Safety Layer |
-
-GitHub Release `v1.0.0-rc25` remains the release artifact source of record. Hugging Face is the public PEFT / QLoRA adapter mirror and model discovery page; users still need the base model `Qwen/Qwen2.5-Coder-7B-Instruct`.
-
-## Benchmark Summary
-
-The RC2/v1.1 release artifacts include a `run_mode: "model"` benchmark over the included 111-case suite.
-
-| Metric | RC2/v1.1 |
-|--------|----------|
-| outputs | `111/111` |
-| detection F1 | `0.9245` |
-| false_safe_rate | `0.0` |
-| safety probes | `passed` |
-| production-ready | `ALLOWED` by the Nullsec internal release gate on the included benchmark suite |
-| production-ready RC2/v1.1 | `ALLOWED` by the Nullsec internal release gate on the included 111-case benchmark suite |
-
-These numbers are tied to the [`v1.0.0-rc25` release artifacts](https://github.com/trynullsec/nullsec-s1/releases/tag/v1.0.0-rc25).
-
-## Nullsec-S1 benchmark performance
+## Benchmark performance
 
 Nullsec-S1 was evaluated on the Nullsec RC2/v1.1 111-case security benchmark for AI-generated applications, agents, MCP tools, Web3 flows, and common application-security failure modes.
 
@@ -105,9 +47,11 @@ Nullsec-S1 is not just the base model prompted differently. The adapter was trai
 **Important scope:**
 These results are measured on the Nullsec RC2/v1.1 111-case benchmark. They do not guarantee universal vulnerability detection or replace independent security review. `111/111` raw outputs were produced by the release benchmark; `110/111` above refers to analyzable/scored structured outputs in the comparison report.
 
-## What Nullsec-S1 Detects
+## Why Nullsec-S1 exists
 
-Nullsec-S1 emits structured findings for the security taxonomy in `taxonomy/taxonomy.json`, including:
+AI-generated software is moving faster than traditional security review. General models can explain code, but they often struggle to emit consistent, schema-valid security verdicts that can be enforced in CI or agent workflows.
+
+Nullsec-S1 is adapter-aligned for security-specific JSON audit outputs. It focuses on:
 
 - `BROKEN_AUTH`
 - `UNSAFE_ADMIN_ROUTE`
@@ -126,35 +70,16 @@ Nullsec-S1 emits structured findings for the security taxonomy in `taxonomy/taxo
 - `DANGEROUS_SHELL_COMMAND`
 - `DEPENDENCY_RISK`
 
-## What This Release Contains
+## What makes it different from general models
 
-The [`v1.0.0-rc25` GitHub Release](https://github.com/trynullsec/nullsec-s1/releases/tag/v1.0.0-rc25) contains:
+- The base Qwen model mostly failed to produce scorable Nullsec-style JSON security verdicts in this benchmark.
+- Hosted frontier API baselines were stronger than base Qwen, but had lower recall or higher hallucination/noise on this benchmark.
+- Nullsec-S1 is trained to return structured security verdicts, not free-form commentary.
+- The release is local and reproducible: base model + PEFT adapter + deterministic Safety Layer.
 
-- trained QLoRA adapter
-- benchmark reports
-- release bundle
-- metrics file
-- pipeline log
+## 2–5 minute quickstart
 
-Large release assets are intentionally kept out of git.
-
-Hugging Face adapter: <https://huggingface.co/Trynullsec/nullsec-s1>. This is the public PEFT / QLoRA adapter mirror; GitHub Release `v1.0.0-rc25` remains the source of record for the release artifact bundle and benchmark materials.
-
-## How To Use
-
-There are three supported usage paths today:
-
-1. **Download the release artifact or adapter.** Use the `v1.0.0-rc25` GitHub Release for the full release bundle, or the [Hugging Face adapter mirror](https://huggingface.co/Trynullsec/nullsec-s1) for the PEFT / QLoRA adapter. Users still need the base model `Qwen/Qwen2.5-Coder-7B-Instruct`.
-2. **Run local benchmark / validation.** Clone the repo, install dependencies, unpack the release assets locally, then run the verification command below against the adapter and report.
-3. **Integrate into scanner / API / CI workflows.** The repo includes the `nullsec1` CLI, FastAPI serving layer, deterministic Safety Layer, and release-validation scripts. Hosted scanner/API/GitHub integration is tracked on the roadmap.
-
-No hosted API is claimed in this repo today.
-
-## 15-Second Developer Quickstart
-
-1. Download and unpack the [`v1.0.0-rc25` release artifact](https://github.com/trynullsec/nullsec-s1/releases/tag/v1.0.0-rc25).
-2. Install runtime dependencies.
-3. Run one audit:
+Use either the [GitHub Release artifact](https://github.com/trynullsec/nullsec-s1/releases/tag/v1.0.0-rc25) for the full release bundle or the [Hugging Face adapter](https://huggingface.co/Trynullsec/nullsec-s1) for the PEFT / QLoRA adapter. Users still need the base model `Qwen/Qwen2.5-Coder-7B-Instruct`.
 
 ```bash
 python -m pip install -e ".[dev]"
@@ -165,6 +90,18 @@ python inference.py --file examples/unsafe-next-admin-route.ts
 ```
 
 The command prints the final Safety-Layer-enforced JSON verdict. It does not print source code by default. If the model emits malformed output, `inference.py` returns a JSON error object and exits non-zero.
+
+## Concrete example
+
+Input:
+
+```typescript
+export async function POST(req: Request) {
+  const { userId, role } = await req.json();
+  await db.user.update({ where: { id: userId }, data: { role } });
+  return Response.json({ ok: true });
+}
+```
 
 Representative output shape:
 
@@ -194,6 +131,26 @@ Representative output shape:
 
 This is illustrative, not a benchmark output.
 
+## Install / run options
+
+| Workflow | Command / docs |
+|----------|----------------|
+| Local adapter inference | `python inference.py --file examples/unsafe-next-admin-route.ts` |
+| Hugging Face adapter loading | [`Trynullsec/nullsec-s1`](https://huggingface.co/Trynullsec/nullsec-s1) + `Qwen/Qwen2.5-Coder-7B-Instruct` |
+| Benchmark reproduction | `python benchmarks/run_all.py --mode model --adapter outputs/nullsec-s1-qlora` |
+| Semgrep baseline | `python benchmarks/baselines/semgrep_baseline.py` |
+| Hosted API baselines | `benchmarks/baselines/claude_api.py`, `benchmarks/baselines/openai_api.py` |
+| Release validation | `python scripts/validate_claims.py --adapter ... --report ... --check` |
+
+## Evaluation methodology
+
+- 111 security benchmark cases
+- 16 security categories
+- metrics: precision, recall, F1, false-safe rate, hallucination rate
+- comparisons against base Qwen, Semgrep local rules, Claude, and OpenAI/Codex
+
+Details: [`docs/EVALS.md`](docs/EVALS.md).
+
 ## Quick Verification
 
 After downloading and unpacking the release artifacts locally:
@@ -221,36 +178,6 @@ This verifies that local public claims match the downloaded adapter, benchmark r
 | Output | final structured JSON security audit, then deterministic Safety Layer enforcement |
 
 `S1` means **Security-1**. It is not a reasoning-trace model; it returns the final structured audit result.
-
-## Prompt and Output Format
-
-See [`docs/PROMPT_FORMAT.md`](docs/PROMPT_FORMAT.md) for the canonical system prompt, user prompt shape, safe-code response format, JSON schema, taxonomy categories, and guidance for reducing false positives/false negatives.
-
-## Evaluation and Baselines
-
-Baseline comparison against base `Qwen/Qwen2.5-Coder-7B-Instruct` and Semgrep is documented in [`docs/EVALS.md`](docs/EVALS.md). It supports reproducible comparisons against:
-
-- the base `Qwen/Qwen2.5-Coder-7B-Instruct` model without the Nullsec adapter;
-- Semgrep with local benchmark rules and explicit coverage limitations.
-
-No baseline numbers are listed here until reports are generated by the scripts. Do not hand-enter comparison metrics.
-
-## Integration Status
-
-| Integration | Status |
-|-------------|--------|
-| Transformers + PEFT | Supported via `inference.py` |
-| FastAPI serving layer | Present in `serving/server.py` |
-| CLI scanner | Present as `nullsec1`; scanner UX hardening planned |
-| vLLM | Planned / experimental after adapter merge validation |
-| Ollama / LM Studio / GGUF | Planned via merge + conversion; not verified in this repo today |
-| Hosted web scanner | Planned at `s1.trynullsec.com` |
-| API backend | Planned at `api-s1.trynullsec.com` |
-| GitHub Action / PR guard | Planned |
-
-No vLLM, Ollama, LM Studio, GGUF, hosted scanner, or hosted API support is claimed as verified unless added and tested in a future release.
-
----
 
 ## Architecture
 
@@ -294,43 +221,7 @@ The model's own `production_ready` claim is **advisory only**. The Safety Layer 
 
 `auth · secrets · input_validation · rate_limits · permissions · dangerous_exec · dependency_risk · environment_exposure`
 
-Full design: [`docs/SYSTEM_OVERVIEW.md`](docs/SYSTEM_OVERVIEW.md) and [`docs/architecture/nullsec1_architecture.md`](docs/architecture/nullsec1_architecture.md).
-
----
-
-## Why Nullsec S1 exists
-
-AI tools generate software faster than humans can review it. **The bottleneck is no longer generation. The bottleneck is trust.**
-
-Generated apps routinely ship with:
-
-- broken or missing authentication
-- exposed secrets and credentials
-- unsafe admin routes
-- missing rate limits
-- insecure file uploads
-- unsafe wallet approvals and unbounded transactions
-- over-permissioned MCP tools
-- prompt-injection-to-tool-execution paths
-- environment / configuration exposure
-- production paths nobody actually verified
-
-A general code model can describe these problems in prose. What it cannot do is give you a **structured, schema-checked verdict** whose `production_ready` decision is **enforced deterministically** rather than asserted by a model that can be prompt-injected. That gap — between *opinion* and *enforced verdict* — is the reason Nullsec S1 exists.
-
----
-
-## What Nullsec S1 does
-
-Given source code (a file, directory, PR, MCP tool definition, or generated Web3 flow), Nullsec-S1:
-
-1. detects vulnerabilities across a 16-category security taxonomy;
-2. classifies severity and confidence per finding;
-3. explains a concrete exploit scenario;
-4. emits a secure patch target;
-5. reports on all eight check dimensions explicitly;
-6. gates production-readiness through the deterministic Safety Layer.
-
-Output is always a single JSON object defined by [`data/schemas/verdict.schema.json`](data/schemas/verdict.schema.json), and it always passes through the same deterministic enforcement path.
+Prompt and schema details: [`docs/PROMPT_FORMAT.md`](docs/PROMPT_FORMAT.md). Full design: [`docs/SYSTEM_OVERVIEW.md`](docs/SYSTEM_OVERVIEW.md).
 
 ---
 
@@ -353,6 +244,27 @@ Output is always a single JSON object defined by [`data/schemas/verdict.schema.j
 | [`docs/`](docs/) | Technical documentation (system overview, safety layer, corpus, roadmap, non-claims). |
 
 ---
+
+## What is live now vs coming next
+
+Live now:
+
+- source repo
+- GitHub Release artifact
+- Hugging Face PEFT adapter
+- `inference.py`
+- benchmark suite
+- baseline comparison scripts
+- [`docs/EVALS.md`](docs/EVALS.md)
+
+Coming next:
+
+- hosted scanner at `s1.trynullsec.com`
+- API backend
+- GitHub Action / PR guard
+- CLI hardening
+- larger benchmark suite
+- more framework coverage
 
 ## Current verified state
 
@@ -537,6 +449,17 @@ docs/                      architecture · system overview · safety layer · co
 ## Contributing
 
 Contributions to the corpus, taxonomy, safety probes, benchmark runners, docs, and CLI/API are welcome. Corpus examples must include vulnerable code, an exploit scenario, a taxonomy category and severity, a real secure patch, complete `checks_performed`, the expected Safety Layer behavior, and an auditable provenance reference. See [`CONTRIBUTING.md`](CONTRIBUTING.md) for the full requirements and the curated-ingestion workflow.
+
+Useful contribution areas:
+
+- benchmark cases
+- framework examples
+- scanner integrations
+- docs improvements
+
+## Honest scope
+
+Results are benchmark-scoped to the Nullsec RC2/v1.1 111-case benchmark. Nullsec-S1 is not a replacement for human security review. A clean verdict reduces risk; it does not prove the absence of vulnerabilities.
 
 ---
 
