@@ -7,6 +7,7 @@
 | **Type** | Security-native LLM (specialized security review model) |
 | **Training base** | Qwen/Qwen2.5-Coder-7B-Instruct (Apache 2.0), config-swappable to 14B |
 | **Training method** | QLoRA (4-bit NF4) supervised fine-tuning + deterministic security alignment |
+| **Adapter format** | PEFT / QLoRA adapter; `adapter_model.safetensors` in the RC2/v1.1 release asset |
 | **Context window** | configurable (2048 default for 24GB training; up to base limit when served) |
 | **License** | Apache 2.0 |
 | **Identity endpoint** | `GET /v1/model` (also `python -m nullsec.core.version`) |
@@ -18,6 +19,23 @@ Nullsec-1 is a specialized security LLM purpose-built for securing AI-generated 
 **Nullsec-1 is not trained from scratch.** It is fine-tuned from an open code model and aligned with a deterministic Security Alignment Layer and Nullsec Safety Layer. Nullsec-1 proposes a verdict; the Safety Layer enforces production-readiness. The model never has the final word on whether code is safe to ship.
 
 The RC2/v1.1 release (`v1.0.0-rc25`) is distributed as a GitHub Release asset, not committed to the source repository. Its real-model benchmark report records `111/111` outputs, detection F1 `0.9245`, false-safe rate `0.0`, and passing safety probes on the included RC2/v1.1 benchmark suite.
+
+## Architecture and loading
+
+Nullsec-S1 RC2/v1.1 is loaded as:
+
+1. base model `Qwen/Qwen2.5-Coder-7B-Instruct`;
+2. PEFT QLoRA adapter from `outputs/nullsec-s1-qlora`;
+3. tokenizer/chat template from the adapter directory when present.
+
+The release artifact includes `adapter_config.json`, `adapter_model.safetensors`,
+tokenizer files, and `chat_template.jinja`. The simplest local inference path is
+`python inference.py --file <path>` after unpacking the release artifact and
+setting `NULLSEC_ADAPTER_PATH=outputs/nullsec-s1-qlora`.
+
+Nullsec-S1 does not expose or require a hidden reasoning trace format. It emits a
+final structured JSON security audit that is then passed through deterministic
+alignment and Safety Layer enforcement.
 
 ## Intended use
 
@@ -62,6 +80,10 @@ Supervised fine-tuning with completion-only loss: given a system instruction def
 ## Evaluation
 
 The benchmark suite (`benchmarks/`) measures detection accuracy, false-safe rate, hallucination rate, OWASP coverage, patch correctness, and secure-generation score. Reports are produced only from real runs against real datasets. The RC2/v1.1 report is included in the `v1.0.0-rc25` GitHub Release assets. Methodology is documented in the technical report.
+
+Security benchmarks are the focus for this release. General academic benchmarks
+such as MMLU or GSM8K are not the primary target because Nullsec-S1 is designed
+for application-security verdicts, not broad general knowledge or math reasoning.
 
 ## Provenance and reproducibility
 

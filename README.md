@@ -36,7 +36,11 @@ The source checkout alone is training-ready; the published RC2/v1.1 release arti
 - [What Nullsec-S1 Detects](#what-nullsec-s1-detects)
 - [What This Release Contains](#what-this-release-contains)
 - [How To Use](#how-to-use)
+- [15-Second Developer Quickstart](#15-second-developer-quickstart)
 - [Quick Verification](#quick-verification)
+- [Model Architecture](#model-architecture)
+- [Prompt and Output Format](#prompt-and-output-format)
+- [Integration Status](#integration-status)
 - [Architecture](#architecture)
 - [Why Nullsec S1 exists](#why-nullsec-s1-exists)
 - [Core system components](#core-system-components)
@@ -125,6 +129,50 @@ There are three supported usage paths today:
 
 No hosted API is claimed in this repo today.
 
+## 15-Second Developer Quickstart
+
+1. Download and unpack the [`v1.0.0-rc25` release artifact](https://github.com/trynullsec/nullsec-s1/releases/tag/v1.0.0-rc25).
+2. Install runtime dependencies.
+3. Run one audit:
+
+```bash
+python -m pip install -e ".[dev]"
+python -m pip install -r requirements-train-cu121.txt
+
+NULLSEC_ADAPTER_PATH=outputs/nullsec-s1-qlora \
+python inference.py --file examples/unsafe-next-admin-route.ts
+```
+
+The command prints the final Safety-Layer-enforced JSON verdict. It does not print source code by default. If the model emits malformed output, `inference.py` returns a JSON error object and exits non-zero.
+
+Representative output shape:
+
+```json
+{
+  "risk_score": 70,
+  "production_ready": false,
+  "severity": "HIGH",
+  "confidence": "HIGH",
+  "reasoning_summary": "Privileged admin mutation is reachable without an authenticated role check.",
+  "findings": [
+    {
+      "category": "UNSAFE_ADMIN_ROUTE",
+      "severity": "HIGH",
+      "file": "examples/unsafe-next-admin-route.ts",
+      "description": "Admin role update route has no session/role check.",
+      "recommended_fix": "Require an authenticated admin session before mutating roles."
+    }
+  ],
+  "_safety_layer": {
+    "production_ready": false,
+    "blocking_reasons": ["R2: dimension 'permissions' failed its check"],
+    "adjustments": []
+  }
+}
+```
+
+This is illustrative, not a benchmark output.
+
 ## Quick Verification
 
 After downloading and unpacking the release artifacts locally:
@@ -137,6 +185,40 @@ python scripts/validate_claims.py \
 ```
 
 This verifies that public claims match the adapter, benchmark report, safety probes, and release bundle on disk.
+
+## Model Architecture
+
+| Component | RC2/v1.1 |
+|-----------|----------|
+| Base model | `Qwen/Qwen2.5-Coder-7B-Instruct` |
+| Adapter | QLoRA / PEFT adapter |
+| Adapter path | `outputs/nullsec-s1-qlora` |
+| Weight format | `adapter_model.safetensors` confirmed in the `v1.0.0-rc25` release artifact |
+| Tokenizer | tokenizer files in the adapter directory when present, otherwise base tokenizer |
+| Chat template | release artifact includes `chat_template.jinja`; inference uses the tokenizer chat template |
+| Reasoning format | no custom hidden reasoning token loop; no `<thought>` parser |
+| Output | final structured JSON security audit, then deterministic Safety Layer enforcement |
+
+`S1` means **Security-1**. It is not a reasoning-trace model; it returns the final structured audit result.
+
+## Prompt and Output Format
+
+See [`docs/PROMPT_FORMAT.md`](docs/PROMPT_FORMAT.md) for the canonical system prompt, user prompt shape, safe-code response format, JSON schema, taxonomy categories, and guidance for reducing false positives/false negatives.
+
+## Integration Status
+
+| Integration | Status |
+|-------------|--------|
+| Transformers + PEFT | Supported via `inference.py` |
+| FastAPI serving layer | Present in `serving/server.py` |
+| CLI scanner | Present as `nullsec1`; scanner UX hardening planned |
+| vLLM | Planned / experimental after adapter merge validation |
+| Ollama / LM Studio / GGUF | Planned via merge + conversion; not verified in this repo today |
+| Hosted web scanner | Planned at `s1.trynullsec.com` |
+| API backend | Planned at `api-s1.trynullsec.com` |
+| GitHub Action / PR guard | Planned |
+
+No vLLM, Ollama, LM Studio, GGUF, hosted scanner, or hosted API support is claimed as verified unless added and tested in a future release.
 
 ---
 

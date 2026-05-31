@@ -4,6 +4,10 @@ This is the beginner-friendly, end-to-end guide to running a real Nullsec S1
 (`Nullsec-1.0`) QLoRA training run on a GPU. If you have never rented a GPU
 before, start here.
 
+If you only want to run the released model, download the `v1.0.0-rc25` GitHub
+Release artifact, unpack it, set `NULLSEC_ADAPTER_PATH=outputs/nullsec-s1-qlora`,
+and run `python inference.py --file examples/unsafe-next-admin-route.ts`.
+
 > **Why a GPU?** Your laptop can verify the corpus, the deterministic safety
 > layers, and the adversarial probes (that is what `pytest` and the validators
 > do). It **cannot** realistically fine-tune a 7B model. QLoRA training needs a

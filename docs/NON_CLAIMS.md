@@ -50,6 +50,19 @@ Statements about being the "first", "only", or "best" LLM/system of its kind
 a claim about the rest of the world. The claim validator never auto-permits these.
 They are not made here and would need independent support if ever stated.
 
+## No hidden reasoning-trace interface
+
+`S1` means `Security-1`. Nullsec-S1 is documented as a model that emits a final
+structured JSON security audit. It does **not** claim a hidden chain-of-thought
+API, `<thought>` token format, or custom reasoning-trace parser.
+
+## Integration claims are scoped
+
+Transformers + PEFT inference is supported via `inference.py`. vLLM, Ollama, LM
+Studio, and GGUF packaging are roadmap items unless and until a future release
+adds tested support. The hosted web scanner and API backend are also roadmap
+items, not current hosted services.
+
 ## "Production-ready model" requires real evidence
 
 The strongest claim — that the *model* is suitable for production use — is gated

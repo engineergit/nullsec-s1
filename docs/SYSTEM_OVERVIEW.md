@@ -62,6 +62,27 @@ The two deterministic layers run identically whether the system is invoked via
 the server, the CLI, the benchmark suite, or the training-data builder. **There
 is exactly one enforcement path.**
 
+## 2.1 Model artifacts
+
+RC2/v1.1 is distributed as GitHub Release `v1.0.0-rc25`, not as committed source
+files. The release artifact contains the trained adapter and reports; the source
+repository contains the reproducibility pipeline.
+
+```mermaid
+flowchart TD
+    baseModel["Qwen2.5-Coder-7B-Instruct"] --> peftAdapter["Nullsec-S1 QLoRA adapter"]
+    peftAdapter --> tokenizer["Tokenizer + chat_template.jinja"]
+    tokenizer --> inference["inference.py / serving / CLI"]
+    inference --> alignment["Security Alignment Layer"]
+    alignment --> safety["Nullsec Safety Layer"]
+    safety --> verdict["Final structured JSON verdict"]
+```
+
+The adapter is a PEFT/QLoRA adapter; the RC2/v1.1 release artifact includes
+`adapter_model.safetensors`, `adapter_config.json`, tokenizer files, and
+`chat_template.jinja`. There is no custom hidden reasoning-token loop; the model
+returns a final structured JSON audit.
+
 ---
 
 ## 3. Reasoning pipeline

@@ -10,6 +10,10 @@ For the provider-agnostic version (Lambda, Vast, your own box) see
 > Nothing here fakes a model. You are running the real pipeline; it produces real
 > artifacts and refuses to produce a release bundle unless they are real.
 
+If you only need inference, you do not need to retrain: download the
+`v1.0.0-rc25` GitHub Release artifact, unpack it, set
+`NULLSEC_ADAPTER_PATH=outputs/nullsec-s1-qlora`, and run `python inference.py`.
+
 > ### ✅ Known-good RC1 setup (this exact setup completed RC1)
 >
 > - **GPU:** RunPod **A100 80GB** — worked.
