@@ -16,12 +16,12 @@ Nullsec-S1 analyzes, explains, patches, and gates AI-generated software before i
 
 This is not a scanner. It is a security system for AI-generated software: a specialized security model wrapped in a deterministic enforcement layer that recomputes production-readiness instead of trusting the model's raw claim.
 
-**Nullsec-S1 RC2/v1.1 is released as a GitHub Release asset.** The source repository contains the training pipeline, corpus, benchmark harness, and validation gates. The trained adapter is intentionally not committed to git; download the RC2/v1.1 release artifact from [`v1.0.0-rc25`](https://github.com/trynullsec/nullsec-s1/releases/tag/v1.0.0-rc25) to reproduce the verified benchmark state.
+**Nullsec-S1 RC2/v1.1 is released as a GitHub Release asset.** The source repository contains the training pipeline, corpus, benchmark harness, and validation gates. The trained adapter is intentionally not committed to git; download the RC2/v1.1 release artifact from [`v1.0.0-rc25`](https://github.com/trynullsec/nullsec-s1/releases/tag/v1.0.0-rc25) to reproduce the verified benchmark state. The adapter is also mirrored for discovery on Hugging Face: <https://huggingface.co/Trynullsec/nullsec-s1>.
 
 | State | Location | Meaning |
 |-------|----------|---------|
 | Source checkout | `main` | training pipeline, corpus, benchmark code, docs |
-| Trained adapter | GitHub Release [`v1.0.0-rc25`](https://github.com/trynullsec/nullsec-s1/releases/tag/v1.0.0-rc25) | RC2/v1.1 QLoRA adapter |
+| Trained adapter | GitHub Release [`v1.0.0-rc25`](https://github.com/trynullsec/nullsec-s1/releases/tag/v1.0.0-rc25) and Hugging Face mirror [`Trynullsec/nullsec-s1`](https://huggingface.co/Trynullsec/nullsec-s1) | RC2/v1.1 PEFT / QLoRA adapter |
 | Benchmark reports | GitHub Release [`v1.0.0-rc25`](https://github.com/trynullsec/nullsec-s1/releases/tag/v1.0.0-rc25) | real-model benchmark artifacts |
 | Local claim validation | requires downloaded/unpacked release artifacts | source-only checkout may show artifact-gated claims as unavailable |
 
@@ -65,12 +65,13 @@ The source checkout alone is training-ready; the published RC2/v1.1 release arti
 | Current verified release | **RC2/v1.1** |
 | GitHub release tag | [`v1.0.0-rc25`](https://github.com/trynullsec/nullsec-s1/releases/tag/v1.0.0-rc25) |
 | Release title | `Nullsec-S1 RC2/v1.1` |
+| Hugging Face adapter | [`Trynullsec/nullsec-s1`](https://huggingface.co/Trynullsec/nullsec-s1) |
 | Source commit | `c29c7f1` (`Add RC2.5 micro-calibration examples`) |
 | Base model | `Qwen/Qwen2.5-Coder-7B-Instruct` |
 | Fine-tuning method | QLoRA |
 | Enforcement | Deterministic Security Alignment + Safety Layer |
 
-The release assets are distributed through GitHub Releases, not committed to this source repository.
+GitHub Release `v1.0.0-rc25` remains the release artifact source of record. Hugging Face is the public PEFT / QLoRA adapter mirror and model discovery page; users still need the base model `Qwen/Qwen2.5-Coder-7B-Instruct`.
 
 ## Benchmark Summary
 
@@ -120,11 +121,13 @@ The [`v1.0.0-rc25` GitHub Release](https://github.com/trynullsec/nullsec-s1/rele
 
 Large release assets are intentionally kept out of git.
 
+Hugging Face adapter: <https://huggingface.co/Trynullsec/nullsec-s1>. This is the public PEFT / QLoRA adapter mirror; GitHub Release `v1.0.0-rc25` remains the source of record for the release artifact bundle and benchmark materials.
+
 ## How To Use
 
 There are three supported usage paths today:
 
-1. **Download the release artifact.** Use the `v1.0.0-rc25` release asset to obtain the trained adapter, benchmark reports, release bundle, metrics, and pipeline log.
+1. **Download the release artifact or adapter.** Use the `v1.0.0-rc25` GitHub Release for the full release bundle, or the [Hugging Face adapter mirror](https://huggingface.co/Trynullsec/nullsec-s1) for the PEFT / QLoRA adapter. Users still need the base model `Qwen/Qwen2.5-Coder-7B-Instruct`.
 2. **Run local benchmark / validation.** Clone the repo, install dependencies, unpack the release assets locally, then run the verification command below against the adapter and report.
 3. **Integrate into scanner / API / CI workflows.** The repo includes the `nullsec1` CLI, FastAPI serving layer, deterministic Safety Layer, and release-validation scripts. Hosted scanner/API/GitHub integration is tracked on the roadmap.
 
@@ -192,7 +195,7 @@ This verifies that local public claims match the downloaded adapter, benchmark r
 | Component | RC2/v1.1 |
 |-----------|----------|
 | Base model | `Qwen/Qwen2.5-Coder-7B-Instruct` |
-| Adapter | QLoRA / PEFT adapter |
+| Adapter | PEFT / QLoRA adapter, mirrored at [`Trynullsec/nullsec-s1`](https://huggingface.co/Trynullsec/nullsec-s1) |
 | Adapter path | `outputs/nullsec-s1-qlora` |
 | Weight format | `adapter_model.safetensors` confirmed in the `v1.0.0-rc25` release artifact |
 | Tokenizer | tokenizer files in the adapter directory when present, otherwise base tokenizer |

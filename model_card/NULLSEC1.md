@@ -8,6 +8,7 @@
 | **Training base** | Qwen/Qwen2.5-Coder-7B-Instruct (Apache 2.0), config-swappable to 14B |
 | **Training method** | QLoRA (4-bit NF4) supervised fine-tuning + deterministic security alignment |
 | **Adapter format** | PEFT / QLoRA adapter; `adapter_model.safetensors` in the RC2/v1.1 release asset |
+| **Hugging Face adapter** | [`Trynullsec/nullsec-s1`](https://huggingface.co/Trynullsec/nullsec-s1) |
 | **Context window** | configurable (2048 default for 24GB training; up to base limit when served) |
 | **License** | Apache 2.0 |
 | **Identity endpoint** | `GET /v1/model` (also `python -m nullsec.core.version`) |
@@ -18,14 +19,14 @@ Nullsec-1 is a specialized security LLM purpose-built for securing AI-generated 
 
 **Nullsec-1 is not trained from scratch.** It is fine-tuned from an open code model and aligned with a deterministic Security Alignment Layer and Nullsec Safety Layer. Nullsec-1 proposes a verdict; the Safety Layer enforces production-readiness. The model never has the final word on whether code is safe to ship.
 
-This model card describes the published RC2/v1.1 release assets (`v1.0.0-rc25`), not a source-only checkout. The trained adapter is distributed as a GitHub Release asset and is not committed to the source repository. Its real-model benchmark report records `111/111` outputs, detection F1 `0.9245`, false-safe rate `0.0`, and passing safety probes on the included RC2/v1.1 benchmark suite.
+This model card describes the published RC2/v1.1 release assets (`v1.0.0-rc25`), not a source-only checkout. The trained adapter is distributed as a GitHub Release asset and is not committed to the source repository. The same PEFT / QLoRA adapter is mirrored for discovery on Hugging Face at [`Trynullsec/nullsec-s1`](https://huggingface.co/Trynullsec/nullsec-s1). GitHub Release `v1.0.0-rc25` remains the release artifact source of record. Its real-model benchmark report records `111/111` outputs, detection F1 `0.9245`, false-safe rate `0.0`, and passing safety probes on the included RC2/v1.1 benchmark suite.
 
 ## Architecture and loading
 
 Nullsec-S1 RC2/v1.1 is loaded as:
 
 1. base model `Qwen/Qwen2.5-Coder-7B-Instruct`;
-2. PEFT QLoRA adapter from `outputs/nullsec-s1-qlora`;
+2. PEFT QLoRA adapter from `outputs/nullsec-s1-qlora` or the Hugging Face mirror `Trynullsec/nullsec-s1`;
 3. tokenizer/chat template from the adapter directory when present.
 
 The release artifact includes `adapter_config.json`, `adapter_model.safetensors`,
