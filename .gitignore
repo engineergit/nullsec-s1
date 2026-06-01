@@ -27,3 +27,14 @@ train_qlora_PATCHED.py
 runpod_*.log
 *.runpod
 nohup.out
+
+# Frontend scanner site
+node_modules/
+.next/
+.vercel/
+out/
+dist/
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
