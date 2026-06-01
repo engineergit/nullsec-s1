@@ -1,6 +1,6 @@
 {
   "name": "@s1-clm/s1",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Nullsec S1 security scanner CLI",
   "homepage": "https://s1.trynullsec.com",
   "license": "MIT",
@@ -14,8 +14,8 @@
   ],
   "type": "module",
   "bin": {
-    "s1": "./dist/index.js",
-    "nullsec-s1": "./dist/index.js"
+    "s1": "./dist/cli.js",
+    "nullsec-s1": "./dist/cli.js"
   },
   "files": [
     "dist",

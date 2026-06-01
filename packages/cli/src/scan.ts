@@ -67,6 +67,11 @@ export async function runScan(options: CliOptions): Promise<number> {
     showAll: options.showAll,
   });
 
+  if (!rendered.trim()) {
+    process.stderr.write("Nullsec S1 scan completed, but no report was generated. This is a CLI error.\n");
+    return EXIT_UNEXPECTED;
+  }
+
   if (!options.output) {
     process.stdout.write(`${rendered}\n`);
   }

@@ -1,5 +1,3 @@
-#!/usr/bin/env node
-import { pathToFileURL } from "node:url";
 import { runDoctor } from "./doctor.js";
 import { runServe } from "./serve.js";
 import { defaultPython, DEFAULT_ADAPTER_PATH, DEFAULT_BASE_MODEL } from "./runtime.js";
@@ -167,10 +165,9 @@ export async function main() {
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected scan failure.";
     process.stderr.write(`Nullsec S1 scan failed: ${message}\n`);
+    if (error instanceof Error && /^Unknown (command|option)/.test(error.message)) {
+      process.stderr.write(`${usage()}\n`);
+    }
     process.exitCode = errorExitCode(error);
   }
-}
-
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  await main();
 }
