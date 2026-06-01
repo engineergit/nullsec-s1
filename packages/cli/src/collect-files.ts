@@ -112,6 +112,7 @@ const LANGUAGE_BY_EXT: Record<string, string> = {
   ".yaml": "yaml",
   ".yml": "yaml",
 };
+const MAX_BACKEND_FILE_CHARS = Number.parseInt(process.env.NULLSEC_MAX_CODE_CHARS || "50000", 10);
 
 export type CollectOptions = {
   path: string;
@@ -277,12 +278,25 @@ export async function collectFiles(options: CollectOptions): Promise<CollectionR
         skipped.push({ path: relPath, reason: "binary file skipped", sensitive: false });
         continue;
       }
+      const content = buffer.toString("utf8");
+      if (!content) {
+        skipped.push({ path: relPath, reason: "empty file skipped", sensitive: false });
+        continue;
+      }
+      if (content.length > MAX_BACKEND_FILE_CHARS) {
+        skipped.push({
+          path: relPath,
+          reason: `file exceeds backend max content length (${MAX_BACKEND_FILE_CHARS})`,
+          sensitive: false,
+        });
+        continue;
+      }
 
       files.push({
         path: relPath,
         absolutePath,
         language: languageFor(relPath),
-        content: buffer.toString("utf8"),
+        content,
         bytes: buffer.byteLength,
       });
       totalBytes += buffer.byteLength;

@@ -149,6 +149,55 @@ def test_repo_scan_returns_cli_report_shape():
     assert fake.last_request["filename"] == "src/admin.ts"
 
 
+def test_repo_scan_accepts_minimal_cli_payload():
+    try:
+        client, fake = client_with_fake_pipeline()
+        response = client.post(
+            "/v1/scan",
+            json={
+                "project_name": "my-app",
+                "files": [
+                    {
+                        "path": "src/index.ts",
+                        "content": "export const ok = true",
+                    }
+                ],
+            },
+        )
+    finally:
+        server.PipelineConfig = REAL_PIPELINE_CONFIG
+
+    assert response.status_code == 200
+    assert response.json()["risk_score"] == 87
+    assert fake.last_request["lang"] == ""
+
+
+def test_repo_scan_rejects_empty_file_content_with_details():
+    try:
+        client, _ = client_with_fake_pipeline()
+        response = client.post(
+            "/v1/scan",
+            json={
+                "project_name": "my-app",
+                "files": [
+                    {
+                        "path": "src/index.ts",
+                        "language": "typescript",
+                        "content": "",
+                    }
+                ],
+            },
+        )
+    finally:
+        server.PipelineConfig = REAL_PIPELINE_CONFIG
+
+    assert response.status_code == 422
+    payload = response.json()
+    assert payload["ok"] is False
+    assert payload["error"]["code"] == "invalid_request"
+    assert payload["error"]["details"][0]["loc"] == ["files", 0, "content"]
+
+
 def test_analyze_rejects_oversized_code_without_model_load():
     try:
         client, _ = client_with_fake_pipeline()

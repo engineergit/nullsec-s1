@@ -137,3 +137,25 @@ test("collectFiles supports explicit excludes", async () => {
     await rm(root, { recursive: true, force: true });
   }
 });
+
+test("collectFiles skips empty and oversized files before backend validation", async () => {
+  const root = await mkdtemp(join(tmpdir(), "nullsec-s1-"));
+  try {
+    await mkdir(join(root, "src"), { recursive: true });
+    await writeFile(join(root, "src", "ok.ts"), "export const ok = true;\n");
+    await writeFile(join(root, "src", "empty.ts"), "");
+    await writeFile(join(root, "src", "huge.ts"), "x".repeat(50001));
+
+    const result = await collectFiles({
+      path: root,
+      maxFiles: 200,
+      maxBytes: 2_000_000,
+    });
+
+    assert.deepEqual(result.files.map((file) => file.path), ["src/ok.ts"]);
+    assert.ok(result.skipped.some((skip) => skip.path === "src/empty.ts"));
+    assert.ok(result.skipped.some((skip) => skip.path === "src/huge.ts"));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});

@@ -81,6 +81,53 @@ test("postScan reports backend unavailable on network failure", async () => {
   );
 });
 
+test("postScan includes backend validation details on 422", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        ok: false,
+        error: {
+          code: "invalid_request",
+          message: "Request body failed validation.",
+          details: [{ loc: ["files", 0, "content"], msg: "field required" }],
+        },
+      }),
+      { status: 422, headers: { "content-type": "application/json" } },
+    );
+  try {
+    await assert.rejects(
+      () => postScan("http://localhost:8000", buildPayload(collection())),
+      (error: unknown) =>
+        error instanceof BackendUnavailableError &&
+        /files\.0\.content: field required/.test(error.message),
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("postScan sends files with path/language/content fields", async () => {
+  const originalFetch = globalThis.fetch;
+  let sentBody = "";
+  globalThis.fetch = async (_url, init) => {
+    sentBody = typeof init?.body === "string" ? init.body : "";
+    return new Response(JSON.stringify({ summary: "ok", risk_score: 0, findings: [] }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+  try {
+    await postScan("http://localhost:8000", buildPayload(collection()));
+    const parsed = JSON.parse(sentBody);
+    assert.equal(parsed.files[0].path, "src/index.ts");
+    assert.equal(parsed.files[0].language, "typescript");
+    assert.equal(typeof parsed.files[0].content, "string");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("no-network heuristic mode marks report and finds local issues", () => {
   const report = runHeuristicScan(collection());
   assert.equal(report.local_heuristic, true);

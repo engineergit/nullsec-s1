@@ -97,5 +97,10 @@ export type BackendError = {
   error?: {
     code?: string;
     message?: string;
+    details?: Array<{
+      loc?: Array<string | number>;
+      msg?: string;
+      type?: string;
+    }>;
   };
 };

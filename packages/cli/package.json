@@ -1,6 +1,6 @@
 {
   "name": "@s1-clm/s1",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Nullsec S1 security scanner CLI",
   "homepage": "https://s1.trynullsec.com",
   "license": "MIT",

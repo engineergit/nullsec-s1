@@ -7,6 +7,15 @@ export class BackendUnavailableError extends Error {
   }
 }
 
+function formatValidationDetails(details?: Array<{ loc?: Array<string | number>; msg?: string }>): string {
+  if (!details?.length) return "";
+  const lines = details.map((detail) => {
+    const path = detail.loc?.join(".") || "request";
+    return `- ${path}: ${detail.msg || "validation error"}`;
+  });
+  return `\nBackend details:\n${lines.join("\n")}`;
+}
+
 export function joinApiUrl(baseUrl: string, endpoint: string): string {
   return `${baseUrl.replace(/\/+$/, "")}/${endpoint.replace(/^\/+/, "")}`;
 }
@@ -31,7 +40,10 @@ export async function postScan(apiUrl: string, payload: ScanPayload): Promise<Sc
     const body = (await response.json()) as ScanReport | BackendError;
     if (!response.ok) {
       const message = "error" in body ? body.error?.message : undefined;
-      throw new BackendUnavailableError(message || `Nullsec S1 backend returned HTTP ${response.status}.`);
+      const details = "error" in body ? formatValidationDetails(body.error?.details) : "";
+      throw new BackendUnavailableError(
+        `${message || `Nullsec S1 backend returned HTTP ${response.status}.`}${details}`,
+      );
     }
 
     return body as ScanReport;

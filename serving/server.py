@@ -130,17 +130,33 @@ async def validation_exception_handler(
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
-    detail = exc.detail if isinstance(exc.detail, str) else "Request failed."
+    details = None
+    if isinstance(exc.detail, str):
+        detail = exc.detail
+    elif isinstance(exc.detail, dict):
+        detail = str(exc.detail.get("message", "Request failed."))
+        details = exc.detail.get("details")
+    elif isinstance(exc.detail, list):
+        detail = "Request failed."
+        details = exc.detail
+    else:
+        detail = "Request failed."
+
     code = "request_failed"
+    if exc.status_code == 422:
+        code = "invalid_request"
     if exc.status_code == 413:
         code = "input_too_large"
     elif exc.status_code == 502:
         code = "inference_alignment_failed"
     elif exc.status_code == 503:
         code = "backend_unavailable"
+    payload = {"ok": False, "error": {"code": code, "message": detail}}
+    if details:
+        payload["error"]["details"] = details
     return JSONResponse(
         status_code=exc.status_code,
-        content={"ok": False, "error": {"code": code, "message": detail}},
+        content=payload,
     )
 
 
@@ -184,8 +200,8 @@ class ScanFile(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     path: str = Field(..., min_length=1, max_length=512)
-    language: str = Field(default="", max_length=64)
-    content: str = Field(..., min_length=1, max_length=MAX_CODE_CHARS)
+    language: str | None = Field(default=None, max_length=64)
+    content: str
 
     @field_validator("path", "language")
     @classmethod
@@ -196,10 +212,10 @@ class ScanFile(BaseModel):
 class ScanMetadata(BaseModel):
     model_config = ConfigDict(extra="allow")
 
-    cli_version: str = ""
-    total_files: int = Field(default=0, ge=0)
-    total_bytes: int = Field(default=0, ge=0)
-    timestamp: str = ""
+    cli_version: str | None = None
+    total_files: int | None = Field(default=None, ge=0)
+    total_bytes: int | None = Field(default=None, ge=0)
+    timestamp: str | None = None
 
 
 class RepoScanRequest(BaseModel):
@@ -208,7 +224,7 @@ class RepoScanRequest(BaseModel):
     project_name: str = Field(..., min_length=1, max_length=256)
     scan_mode: str = Field(default="repo")
     files: list[ScanFile] = Field(..., min_length=1, max_length=200)
-    metadata: ScanMetadata = Field(default_factory=ScanMetadata)
+    metadata: ScanMetadata | dict | None = None
 
     @field_validator("project_name", "scan_mode")
     @classmethod
@@ -273,10 +289,44 @@ def scan(req: RepoScanRequest) -> dict:
     pipeline = get_pipeline()
     findings: list[dict] = []
     max_risk = 0
+    validation_errors = []
+
+    if not req.files:
+        validation_errors.append({
+            "loc": ["files"],
+            "msg": "at least one file is required",
+            "type": "value_error",
+        })
+
+    for index, scan_file in enumerate(req.files):
+        if not scan_file.path.strip():
+            validation_errors.append({
+                "loc": ["files", index, "path"],
+                "msg": "path is required",
+                "type": "value_error",
+            })
+        if not scan_file.content:
+            validation_errors.append({
+                "loc": ["files", index, "content"],
+                "msg": "content is required",
+                "type": "value_error",
+            })
+        elif len(scan_file.content) > MAX_CODE_CHARS:
+            validation_errors.append({
+                "loc": ["files", index, "content"],
+                "msg": f"content exceeds max length {MAX_CODE_CHARS}",
+                "type": "value_error",
+            })
+
+    if validation_errors:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": "Request body failed validation.", "details": validation_errors},
+        )
 
     try:
         for scan_file in req.files:
-            result = pipeline.analyze(scan_file.path, scan_file.content, scan_file.language)
+            result = pipeline.analyze(scan_file.path, scan_file.content, scan_file.language or "")
             verdict = json.loads(pipeline.to_json(result))
             max_risk = max(max_risk, int(verdict.get("risk_score", 0)))
             for finding in verdict.get("findings", []):
