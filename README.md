@@ -142,6 +142,102 @@ This is illustrative, not a benchmark output.
 | Hosted API baselines | `benchmarks/baselines/claude_api.py`, `benchmarks/baselines/openai_api.py` |
 | Release validation | `python scripts/validate_claims.py --adapter ... --report ... --check` |
 
+## Running Nullsec S1 from Hugging Face
+
+The FastAPI serving layer can load the public PEFT adapter mirror directly from
+Hugging Face. The adapter repo must match the configured base model.
+
+```bash
+export NULLSEC_BASE_MODEL=Qwen/Qwen2.5-Coder-7B-Instruct
+export NULLSEC_ADAPTER_PATH=Trynullsec/nullsec-s1
+export NULLSEC_CORS_ORIGINS=http://localhost:3000,https://s1.trynullsec.com
+export NULLSEC_EAGER_LOAD=0
+
+python -m uvicorn serving.server:app --host 0.0.0.0 --port 8000
+```
+
+`NULLSEC_ADAPTER_PATH` may also point to a local unpacked release artifact, for
+example `/workspace/nullsec-s1/outputs/nullsec-s1-qlora`. Use `/model-info` to
+confirm the configured base model, adapter path, adapter source, load status,
+device, dtype, and eager-loading mode.
+
+## Nullsec S1 CLI
+
+Run a local project scan from any repo:
+
+```bash
+npx @s1-clm/s1 scan
+```
+
+Default backend:
+
+```text
+https://s1.trynullsec.com/api
+```
+
+Use a local backend:
+
+```bash
+NULLSEC_API_URL=http://localhost:8000 npx @s1-clm/s1 scan
+```
+
+Write a JSON report:
+
+```bash
+npx @s1-clm/s1 scan --json --output nullsec-report.json
+```
+
+Fail CI on high findings:
+
+```bash
+npx @s1-clm/s1 scan --fail-on high
+```
+
+Run without network access:
+
+```bash
+npx @s1-clm/s1 scan --no-network
+```
+
+Exclude a path for one scan:
+
+```bash
+npx @s1-clm/s1 scan --exclude corpus --exclude benchmarks
+```
+
+The CLI scans local source files, skips secrets/private files such as real `.env`
+files and private keys, and sends source snippets to the configured Nullsec S1
+backend unless `--no-network` is used. `--no-network` runs local heuristics only;
+it does not use the Nullsec S1 model.
+
+Add a `.nullsecignore` file at the scan root to skip intentional fixtures,
+benchmarks, generated code, or other paths:
+
+```gitignore
+benchmarks/
+corpus/
+training/
+taxonomy/
+*.egg-info/
+```
+
+By default, the CLI skips common dependency, cache, build, virtualenv, private
+key, real `.env`, binary, archive, and model-weight files. Text output shows the
+first 20 findings by default; use `--show-all` to print every finding.
+
+Run the local backend bundled with the npm package:
+
+```bash
+npx @s1-clm/s1 doctor
+npx @s1-clm/s1 serve
+npx @s1-clm/s1 scan --local-model
+```
+
+The npm package includes the CLI and Python FastAPI serving source. It does not
+embed multi-GB model weights; the backend loads
+`Qwen/Qwen2.5-Coder-7B-Instruct` and `Trynullsec/nullsec-s1` from Hugging Face or
+from paths configured with `NULLSEC_BASE_MODEL` and `NULLSEC_ADAPTER_PATH`.
+
 ## Evaluation methodology
 
 - 111 security benchmark cases

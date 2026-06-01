@@ -21,8 +21,10 @@ Run:
 from __future__ import annotations
 
 import json
+import logging
 import os
 import sys
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -33,7 +35,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from nullsec.core.engine import NullsecPipeline, PipelineConfig
+from nullsec.core.engine import NullsecPipeline, PipelineConfig, PipelineLoadError
 from nullsec.core.version import (
     MODEL_NAME,
     MODEL_VERSION,
@@ -42,9 +44,29 @@ from nullsec.core.version import (
 )
 from nullsec.safety import VerdictParseError
 
-app = FastAPI(title=MODEL_NAME, version=MODEL_VERSION)
+logging.basicConfig(level=os.environ.get("NULLSEC_LOG_LEVEL", "INFO"))
+LOGGER = logging.getLogger("nullsec.s1")
+
 _pipeline: NullsecPipeline | None = None
 MAX_CODE_CHARS = int(os.environ.get("NULLSEC_MAX_CODE_CHARS", "50000"))
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    config = PipelineConfig()
+    LOGGER.info("[Nullsec S1] Base model configured: %s", config.base_model)
+    LOGGER.info("[Nullsec S1] PEFT adapter configured: %s", config.adapter_path or "none")
+    LOGGER.info("[Nullsec S1] Adapter source detected: %s", config.adapter_source)
+    LOGGER.info(
+        "[Nullsec S1] Eager loading enabled: %s",
+        "yes" if os.environ.get("NULLSEC_EAGER_LOAD", "0") == "1" else "no",
+    )
+    if os.environ.get("NULLSEC_EAGER_LOAD", "0") == "1":
+        get_pipeline().load()
+    yield
+
+
+app = FastAPI(title=MODEL_NAME, version=MODEL_VERSION, lifespan=lifespan)
 
 
 def _cors_origins() -> list[str]:
@@ -126,9 +148,16 @@ def get_pipeline() -> NullsecPipeline:
     global _pipeline
     if _pipeline is None:
         _pipeline = NullsecPipeline(PipelineConfig())
-        if os.environ.get("NULLSEC_EAGER_LOAD", "0") == "1":
-            _pipeline.load()
     return _pipeline
+
+
+def _pipeline_info() -> dict:
+    pipeline = get_pipeline()
+    return pipeline.info()
+
+
+def _load_error_response(e: PipelineLoadError) -> HTTPException:
+    return HTTPException(status_code=503, detail=str(e))
 
 
 class AnalyzeRequest(BaseModel):
@@ -151,9 +180,68 @@ class AnalyzeRequest(BaseModel):
         return self
 
 
+class ScanFile(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    path: str = Field(..., min_length=1, max_length=512)
+    language: str = Field(default="", max_length=64)
+    content: str = Field(..., min_length=1, max_length=MAX_CODE_CHARS)
+
+    @field_validator("path", "language")
+    @classmethod
+    def strip_string(cls, value: str) -> str:
+        return value.strip()
+
+
+class ScanMetadata(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
+    cli_version: str = ""
+    total_files: int = Field(default=0, ge=0)
+    total_bytes: int = Field(default=0, ge=0)
+    timestamp: str = ""
+
+
+class RepoScanRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project_name: str = Field(..., min_length=1, max_length=256)
+    scan_mode: str = Field(default="repo")
+    files: list[ScanFile] = Field(..., min_length=1, max_length=200)
+    metadata: ScanMetadata = Field(default_factory=ScanMetadata)
+
+    @field_validator("project_name", "scan_mode")
+    @classmethod
+    def strip_string(cls, value: str) -> str:
+        return value.strip()
+
+
+def _finding_from_verdict(finding: dict, fallback_file: str) -> dict:
+    severity = str(finding.get("severity", "INFO")).lower()
+    return {
+        "severity": severity,
+        "title": finding.get("category", "Security finding"),
+        "file": finding.get("file") or fallback_file,
+        "line": finding.get("line"),
+        "description": finding.get("description") or finding.get("summary") or "",
+        "recommendation": finding.get("recommended_fix") or finding.get("recommendation") or "",
+    }
+
+
+def _summary_from_counts(project_name: str, file_count: int, findings: list[dict]) -> str:
+    if not findings:
+        return f"No findings returned for {project_name} across {file_count} files."
+    return f"Found {len(findings)} finding(s) in {project_name} across {file_count} files."
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "model": MODEL_NAME, "version": MODEL_VERSION}
+
+
+@app.get("/model-info")
+def model_info_endpoint() -> dict:
+    return _pipeline_info()
 
 
 @app.get("/v1/model")
@@ -172,9 +260,42 @@ def analyze(req: AnalyzeRequest) -> dict:
     pipeline = get_pipeline()
     try:
         result = pipeline.analyze(req.filename, req.code, req.language)
+    except PipelineLoadError as e:
+        raise _load_error_response(e)
     except VerdictParseError as e:
         raise HTTPException(status_code=502, detail=f"Nullsec-1 output could not be aligned: {e}")
     return {"ok": True, "verdict": json.loads(pipeline.to_json(result))}
+
+
+@app.post("/v1/scan")
+def scan(req: RepoScanRequest) -> dict:
+    _assert_real_nullsec_config()
+    pipeline = get_pipeline()
+    findings: list[dict] = []
+    max_risk = 0
+
+    try:
+        for scan_file in req.files:
+            result = pipeline.analyze(scan_file.path, scan_file.content, scan_file.language)
+            verdict = json.loads(pipeline.to_json(result))
+            max_risk = max(max_risk, int(verdict.get("risk_score", 0)))
+            for finding in verdict.get("findings", []):
+                findings.append(_finding_from_verdict(finding, scan_file.path))
+    except PipelineLoadError as e:
+        raise _load_error_response(e)
+    except VerdictParseError as e:
+        raise HTTPException(status_code=502, detail=f"Nullsec-1 output could not be aligned: {e}")
+
+    return {
+        "summary": _summary_from_counts(req.project_name, len(req.files), findings),
+        "risk_score": max_risk,
+        "findings": findings,
+        "model": {
+            "base_model": pipeline.info()["base_model"],
+            "adapter_path": pipeline.info()["adapter_path"],
+            "adapter_loaded": pipeline.info()["adapter_loaded"],
+        },
+    }
 
 
 @app.post("/v1/patch")
@@ -183,6 +304,8 @@ def patch(req: AnalyzeRequest) -> dict:
     pipeline = get_pipeline()
     try:
         result = pipeline.analyze(req.filename, req.code, req.language)
+    except PipelineLoadError as e:
+        raise _load_error_response(e)
     except VerdictParseError as e:
         raise HTTPException(status_code=502, detail=f"Nullsec-1 output could not be aligned: {e}")
     payload = json.loads(pipeline.to_json(result))

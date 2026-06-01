@@ -1,7 +1,10 @@
 import json
+import sys
+import types
 
 from fastapi.testclient import TestClient
 
+from nullsec.core.engine import NullsecPipeline, PipelineConfig, detect_adapter_source
 from serving import server
 
 
@@ -54,6 +57,17 @@ class FakePipeline:
             }
         )
 
+    def info(self) -> dict:
+        return {
+            "base_model": "Qwen/Qwen2.5-Coder-7B-Instruct",
+            "adapter_path": "Trynullsec/nullsec-s1",
+            "adapter_loaded": True,
+            "adapter_source": "hf_repo",
+            "device": "cuda:0",
+            "dtype": "torch.bfloat16",
+            "eager_loaded": False,
+        }
+
 
 def client_with_fake_pipeline():
     fake = FakePipeline()
@@ -100,6 +114,41 @@ def test_analyze_accepts_legacy_lang_field():
     assert fake.last_request["lang"] == "typescript"
 
 
+def test_repo_scan_returns_cli_report_shape():
+    try:
+        client, fake = client_with_fake_pipeline()
+        response = client.post(
+            "/v1/scan",
+            json={
+                "project_name": "my-app",
+                "scan_mode": "repo",
+                "files": [
+                    {
+                        "path": "src/admin.ts",
+                        "language": "typescript",
+                        "content": "export async function POST() {}",
+                    }
+                ],
+                "metadata": {
+                    "cli_version": "0.1.0",
+                    "total_files": 1,
+                    "total_bytes": 31,
+                    "timestamp": "2026-06-01T00:00:00.000Z",
+                },
+            },
+        )
+    finally:
+        server.PipelineConfig = REAL_PIPELINE_CONFIG
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["risk_score"] == 87
+    assert payload["findings"][0]["severity"] == "high"
+    assert payload["findings"][0]["title"] == "UNSAFE_ADMIN_ROUTE"
+    assert payload["model"]["adapter_loaded"] is True
+    assert fake.last_request["filename"] == "src/admin.ts"
+
+
 def test_analyze_rejects_oversized_code_without_model_load():
     try:
         client, _ = client_with_fake_pipeline()
@@ -130,3 +179,138 @@ def test_analyze_requires_adapter_configuration():
     assert response.status_code == 503
     assert response.json()["ok"] is False
     assert response.json()["error"]["code"] == "backend_unavailable"
+
+
+def test_adapter_source_detection():
+    assert detect_adapter_source("Trynullsec/nullsec-s1") == "hf_repo"
+    assert detect_adapter_source("./local/path/to/adapter") == "local_path"
+    assert detect_adapter_source("/absolute/path/to/adapter") == "local_path"
+    assert detect_adapter_source(None) == "none"
+
+
+def test_pipeline_config_reads_runtime_environment(monkeypatch):
+    monkeypatch.setenv("NULLSEC_BASE_MODEL", "Qwen/Qwen2.5-Coder-7B-Instruct")
+    monkeypatch.setenv("NULLSEC_ADAPTER_PATH", "Trynullsec/nullsec-s1")
+    monkeypatch.setenv("NULLSEC_EAGER_LOAD", "1")
+    server._pipeline = None
+
+    try:
+        config = PipelineConfig()
+
+        assert config.base_model == "Qwen/Qwen2.5-Coder-7B-Instruct"
+        assert config.adapter_path == "Trynullsec/nullsec-s1"
+        assert config.adapter_source == "hf_repo"
+        assert server._pipeline_info()["eager_loaded"] is True
+    finally:
+        server._pipeline = None
+
+
+def test_model_info_endpoint_reads_server_config(monkeypatch):
+    monkeypatch.setenv("NULLSEC_BASE_MODEL", "Qwen/Qwen2.5-Coder-7B-Instruct")
+    monkeypatch.setenv("NULLSEC_ADAPTER_PATH", "Trynullsec/nullsec-s1")
+    monkeypatch.setenv("NULLSEC_EAGER_LOAD", "1")
+    server._pipeline = None
+
+    try:
+        response = TestClient(server.app).get("/model-info")
+    finally:
+        server._pipeline = None
+
+    payload = response.json()
+    assert payload["base_model"] == "Qwen/Qwen2.5-Coder-7B-Instruct"
+    assert payload["adapter_path"] == "Trynullsec/nullsec-s1"
+    assert payload["adapter_loaded"] is False
+    assert payload["adapter_source"] == "hf_repo"
+    assert payload["eager_loaded"] is True
+
+
+def test_pipeline_load_passes_hf_adapter_id_to_peft(monkeypatch):
+    calls = {}
+
+    class FakeTensor:
+        bfloat16 = "bfloat16"
+
+        @staticmethod
+        def no_grad():
+            class Context:
+                def __enter__(self):
+                    return None
+
+                def __exit__(self, *args):
+                    return False
+
+            return Context()
+
+    class FakeBitsAndBytesConfig:
+        def __init__(self, **kwargs):
+            calls["quant"] = kwargs
+
+    class FakeTokenizer:
+        @classmethod
+        def from_pretrained(cls, model_id, trust_remote_code):
+            calls["tokenizer"] = (model_id, trust_remote_code)
+            return cls()
+
+    class FakeModel:
+        device = "cuda:0"
+        dtype = "torch.bfloat16"
+
+        @classmethod
+        def from_pretrained(cls, model_id, **kwargs):
+            calls["base_model"] = (model_id, kwargs)
+            return cls()
+
+        def eval(self):
+            calls["eval"] = True
+
+    class FakePeftModel:
+        @staticmethod
+        def from_pretrained(model, adapter_path):
+            calls["adapter"] = adapter_path
+            return model
+
+    monkeypatch.setitem(sys.modules, "torch", FakeTensor)
+    monkeypatch.setitem(
+        sys.modules,
+        "transformers",
+        types.SimpleNamespace(
+            AutoModelForCausalLM=FakeModel,
+            AutoTokenizer=FakeTokenizer,
+            BitsAndBytesConfig=FakeBitsAndBytesConfig,
+        ),
+    )
+    monkeypatch.setitem(sys.modules, "peft", types.SimpleNamespace(PeftModel=FakePeftModel))
+
+    pipeline = NullsecPipeline(
+        PipelineConfig(
+            base_model="Qwen/Qwen2.5-Coder-7B-Instruct",
+            adapter_path="Trynullsec/nullsec-s1",
+        )
+    )
+    pipeline.load()
+
+    assert calls["tokenizer"] == ("Qwen/Qwen2.5-Coder-7B-Instruct", True)
+    assert calls["base_model"][0] == "Qwen/Qwen2.5-Coder-7B-Instruct"
+    assert calls["adapter"] == "Trynullsec/nullsec-s1"
+    assert pipeline.info()["adapter_loaded"] is True
+    assert pipeline.info()["device"] == "cuda:0"
+
+
+def test_analyze_returns_json_when_runtime_dependencies_missing(monkeypatch):
+    monkeypatch.setenv("NULLSEC_BASE_MODEL", "Qwen/Qwen2.5-Coder-7B-Instruct")
+    monkeypatch.setenv("NULLSEC_ADAPTER_PATH", "Trynullsec/nullsec-s1")
+    server._pipeline = None
+    monkeypatch.setitem(sys.modules, "torch", None)
+
+    try:
+        response = TestClient(server.app).post(
+            "/v1/analyze",
+            json={"filename": "route.ts", "language": "typescript", "code": "export const ok = true"},
+        )
+    finally:
+        server._pipeline = None
+
+    assert response.status_code == 503
+    assert response.json()["ok"] is False
+    assert response.json()["error"]["code"] == "backend_unavailable"
+    assert "runtime dependency load failed" in response.json()["error"]["message"]

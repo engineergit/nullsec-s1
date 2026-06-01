@@ -34,7 +34,13 @@ node_modules/
 .vercel/
 out/
 dist/
+dist-test/
 npm-debug.log*
 pnpm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+packages/cli/runtime/
+packages/cli/dist/
+packages/cli/dist-test/
+*.tgz
