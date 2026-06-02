@@ -268,6 +268,14 @@ class NullsecPipeline:
         for token in streamer:
             yield token
 
+    def generate_messages(self, messages: list[dict]) -> str:
+        """Generate raw model text for caller-supplied chat messages."""
+        self.load()
+        prompt = self._tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True
+        )
+        return self._generate(prompt)
+
     # ---- public API: always returns an enforced verdict ------------------
     def analyze(self, filename: str, code: str, lang: str = "") -> SafetyResult:
         self.load()

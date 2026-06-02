@@ -1,4 +1,5 @@
 import json
+import os
 import sys
 import types
 
@@ -9,12 +10,24 @@ from serving import server
 
 
 REAL_PIPELINE_CONFIG = server.PipelineConfig
+REAL_ENABLE_ARENA_RAW = os.environ.get("NULLSEC_ENABLE_ARENA_RAW")
+
+
+def restore_arena_env():
+    if REAL_ENABLE_ARENA_RAW is None:
+        os.environ.pop("NULLSEC_ENABLE_ARENA_RAW", None)
+    else:
+        os.environ["NULLSEC_ENABLE_ARENA_RAW"] = REAL_ENABLE_ARENA_RAW
 
 
 class FakePipeline:
     def analyze(self, filename: str, code: str, lang: str):
         self.last_request = {"filename": filename, "code": code, "lang": lang}
         return object()
+
+    def generate_messages(self, messages: list[dict]) -> str:
+        self.last_messages = messages
+        return '{"findings":[{"category":"UNSAFE_ADMIN_ROUTE"}]}'
 
     def to_json(self, result) -> str:
         return json.dumps(
@@ -112,6 +125,60 @@ def test_analyze_accepts_legacy_lang_field():
 
     assert response.status_code == 200
     assert fake.last_request["lang"] == "typescript"
+
+
+def test_arena_raw_disabled_by_default():
+    try:
+        os.environ.pop("NULLSEC_ENABLE_ARENA_RAW", None)
+        client, fake = client_with_fake_pipeline()
+        response = client.post(
+            "/v1/arena/raw",
+            json={
+                "prompt": "Audit exactly this snippet.",
+                "language": "typescript",
+                "code": "export async function POST() {}",
+            },
+        )
+    finally:
+        server.PipelineConfig = REAL_PIPELINE_CONFIG
+        restore_arena_env()
+
+    assert response.status_code == 403
+    assert response.json() == {
+        "ok": False,
+        "error": {
+            "code": "arena_disabled",
+            "message": "Arena raw endpoint is disabled.",
+        },
+    }
+    assert not hasattr(fake, "last_messages")
+
+
+def test_arena_raw_uses_caller_supplied_prompt_when_enabled():
+    try:
+        os.environ["NULLSEC_ENABLE_ARENA_RAW"] = "1"
+        client, fake = client_with_fake_pipeline()
+        response = client.post(
+            "/v1/arena/raw",
+            json={
+                "prompt": "Audit exactly this snippet.",
+                "language": "typescript",
+                "code": "export async function POST() {}",
+            },
+        )
+    finally:
+        server.PipelineConfig = REAL_PIPELINE_CONFIG
+        restore_arena_env()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["raw_output"] == '{"findings":[{"category":"UNSAFE_ADMIN_ROUTE"}]}'
+    assert fake.last_messages == [
+        {
+            "role": "user",
+            "content": "Audit exactly this snippet.\n\n```typescript\nexport async function POST() {}\n```",
+        }
+    ]
 
 
 def test_repo_scan_returns_cli_report_shape():

@@ -14,6 +14,7 @@ Endpoints:
   POST /v1/analyze         enforced JSON verdict
   POST /v1/patch           verdict with secure patches surfaced
   POST /v1/analyze/stream  SSE stream of tokens, then the enforced verdict
+  POST /v1/arena/raw       raw generation for controlled comparison demos
 
 Run:
   uvicorn serving.server:app --host 0.0.0.0 --port 8000
@@ -100,6 +101,19 @@ def _assert_real_nullsec_config() -> None:
             "Nullsec-S1 adapter is not configured. Set NULLSEC_ADAPTER_PATH to "
             "the Hugging Face adapter id or a local release artifact path."
         ),
+    )
+
+
+def _arena_raw_disabled_response() -> JSONResponse:
+    return JSONResponse(
+        status_code=403,
+        content={
+            "ok": False,
+            "error": {
+                "code": "arena_disabled",
+                "message": "Arena raw endpoint is disabled.",
+            },
+        },
     )
 
 
@@ -209,6 +223,19 @@ class ScanFile(BaseModel):
         return value.strip()
 
 
+class ArenaRawRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    prompt: str = Field(..., min_length=1, max_length=8000)
+    code: str = Field(..., min_length=1, max_length=MAX_CODE_CHARS)
+    language: str = Field(default="typescript", max_length=64)
+
+    @field_validator("prompt", "code", "language")
+    @classmethod
+    def strip_string(cls, value: str) -> str:
+        return value.strip()
+
+
 class ScanMetadata(BaseModel):
     model_config = ConfigDict(extra="allow")
 
@@ -281,6 +308,26 @@ def analyze(req: AnalyzeRequest) -> dict:
     except VerdictParseError as e:
         raise HTTPException(status_code=502, detail=f"Nullsec-1 output could not be aligned: {e}")
     return {"ok": True, "verdict": json.loads(pipeline.to_json(result))}
+
+
+@app.post("/v1/arena/raw")
+def arena_raw(req: ArenaRawRequest):
+    if os.environ.get("NULLSEC_ENABLE_ARENA_RAW") != "1":
+        return _arena_raw_disabled_response()
+    _assert_real_nullsec_config()
+    pipeline = get_pipeline()
+    messages = [
+        {"role": "user", "content": f"{req.prompt}\n\n```{req.language}\n{req.code}\n```"},
+    ]
+    try:
+        raw_output = pipeline.generate_messages(messages)
+    except PipelineLoadError as e:
+        raise _load_error_response(e)
+    return {
+        "ok": True,
+        "model": pipeline.info(),
+        "raw_output": raw_output,
+    }
 
 
 @app.post("/v1/scan")
