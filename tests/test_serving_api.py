@@ -209,7 +209,7 @@ def test_repo_scan_returns_cli_report_shape():
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["risk_score"] == 87
+    assert payload["risk_score"] == 70
     assert payload["findings"][0]["severity"] == "high"
     assert payload["findings"][0]["title"] == "UNSAFE_ADMIN_ROUTE"
     assert payload["model"]["adapter_loaded"] is True
@@ -235,7 +235,7 @@ def test_repo_scan_accepts_minimal_cli_payload():
         server.PipelineConfig = REAL_PIPELINE_CONFIG
 
     assert response.status_code == 200
-    assert response.json()["risk_score"] == 87
+    assert response.json()["risk_score"] == 70
     assert fake.last_request["lang"] == ""
 
 

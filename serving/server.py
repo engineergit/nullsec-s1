@@ -44,6 +44,7 @@ from nullsec.core.version import (
     model_info,
 )
 from nullsec.safety import VerdictParseError
+from nullsec.safety.finding_normalization import normalize_verdict_payload
 
 logging.basicConfig(level=os.environ.get("NULLSEC_LOG_LEVEL", "INFO"))
 LOGGER = logging.getLogger("nullsec.s1")
@@ -263,7 +264,9 @@ def _finding_from_verdict(finding: dict, fallback_file: str) -> dict:
     severity = str(finding.get("severity", "INFO")).lower()
     return {
         "severity": severity,
-        "title": finding.get("category", "Security finding"),
+        "title": finding.get("title") or finding.get("category", "Security finding"),
+        "category": finding.get("category", "Security finding"),
+        "cwe": finding.get("cwe"),
         "file": finding.get("file") or fallback_file,
         "line": finding.get("line"),
         "description": finding.get("description") or finding.get("summary") or "",
@@ -307,7 +310,8 @@ def analyze(req: AnalyzeRequest) -> dict:
         raise _load_error_response(e)
     except VerdictParseError as e:
         raise HTTPException(status_code=502, detail=f"Nullsec-1 output could not be aligned: {e}")
-    return {"ok": True, "verdict": json.loads(pipeline.to_json(result))}
+    verdict = normalize_verdict_payload(json.loads(pipeline.to_json(result)), req.code, req.filename)
+    return {"ok": True, "verdict": verdict}
 
 
 @app.post("/v1/arena/raw")
@@ -374,7 +378,7 @@ def scan(req: RepoScanRequest) -> dict:
     try:
         for scan_file in req.files:
             result = pipeline.analyze(scan_file.path, scan_file.content, scan_file.language or "")
-            verdict = json.loads(pipeline.to_json(result))
+            verdict = normalize_verdict_payload(json.loads(pipeline.to_json(result)), scan_file.content, scan_file.path)
             max_risk = max(max_risk, int(verdict.get("risk_score", 0)))
             for finding in verdict.get("findings", []):
                 findings.append(_finding_from_verdict(finding, scan_file.path))
@@ -431,7 +435,7 @@ def analyze_stream(req: AnalyzeRequest) -> StreamingResponse:
         raw = "".join(buffer)
         try:
             result = pipeline.finalize(raw)
-            final = json.loads(pipeline.to_json(result))
+            final = normalize_verdict_payload(json.loads(pipeline.to_json(result)), req.code, req.filename)
             yield f"event: verdict\ndata: {json.dumps(final)}\n\n"
         except VerdictParseError as e:
             yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
