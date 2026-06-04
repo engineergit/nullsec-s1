@@ -49,6 +49,7 @@ const INCLUDED_EXTENSIONS = new Set([
   ".toml",
   ".yaml",
   ".yml",
+  ".md",
 ]);
 
 const INCLUDED_BASENAMES = new Set([
@@ -60,6 +61,8 @@ const INCLUDED_BASENAMES = new Set([
   "yarn.lock",
   "package-lock.json",
 ]);
+
+const LOCKFILE_BASENAMES = new Set(["pnpm-lock.yaml", "yarn.lock", "package-lock.json"]);
 
 const SENSITIVE_BASENAMES = new Set([
   ".env",
@@ -111,6 +114,7 @@ const LANGUAGE_BY_EXT: Record<string, string> = {
   ".toml": "toml",
   ".yaml": "yaml",
   ".yml": "yaml",
+  ".md": "markdown",
 };
 const MAX_BACKEND_FILE_CHARS = Number.parseInt(process.env.NULLSEC_MAX_CODE_CHARS || "50000", 10);
 
@@ -118,7 +122,9 @@ export type CollectOptions = {
   path: string;
   maxFiles: number;
   maxBytes: number;
+  maxTotalBytes?: number;
   excludes?: string[];
+  includeLockfiles?: boolean;
 };
 
 type IgnoreRule = {
@@ -162,9 +168,114 @@ function shouldInclude(relPath: string): boolean {
   return INCLUDED_BASENAMES.has(name) || INCLUDED_EXTENSIONS.has(extname(name));
 }
 
+export function languageForPath(path: string): string {
+  return languageFor(path);
+}
+
 function isLikelyBinary(buffer: Buffer): boolean {
   const sample = buffer.subarray(0, Math.min(buffer.length, 4096));
   return sample.includes(0);
+}
+
+function buildCollection(root: string, projectName: string, files: CollectedFile[], skipped: SkippedFile[]): CollectionResult {
+  return {
+    root,
+    projectName,
+    files,
+    skipped,
+    totalBytes: files.reduce((total, file) => total + file.bytes, 0),
+  };
+}
+
+export function collectTextInput(params: {
+  content: string;
+  path?: string;
+  language?: string;
+  projectName?: string;
+  maxBytes: number;
+}): CollectionResult {
+  const filename = params.path || "stdin.txt";
+  const buffer = Buffer.from(params.content, "utf8");
+  const skipped: SkippedFile[] = [];
+  if (!params.content.trim()) {
+    skipped.push({ path: filename, reason: "empty input skipped", sensitive: false });
+    return buildCollection(process.cwd(), params.projectName || "stdin", [], skipped);
+  }
+  if (buffer.byteLength > params.maxBytes || params.content.length > MAX_BACKEND_FILE_CHARS) {
+    skipped.push({ path: filename, reason: "input exceeds max content length", sensitive: false });
+    return buildCollection(process.cwd(), params.projectName || "stdin", [], skipped);
+  }
+  return buildCollection(
+    process.cwd(),
+    params.projectName || "stdin",
+    [
+      {
+        path: filename,
+        absolutePath: filename,
+        language: params.language || languageFor(filename),
+        content: params.content,
+        bytes: buffer.byteLength,
+      },
+    ],
+    skipped,
+  );
+}
+
+async function collectSingleFile(path: string, options: CollectOptions): Promise<CollectionResult> {
+  const absolutePath = resolve(path);
+  const name = basename(absolutePath);
+  const skipped: SkippedFile[] = [];
+  const skip = skipReason(name, name, false);
+  if (skip) {
+    skipped.push(skip);
+    return buildCollection(absolutePath, name, [], skipped);
+  }
+  if (!shouldInclude(name)) {
+    skipped.push({ path: name, reason: "unsupported file type skipped", sensitive: false });
+    return buildCollection(absolutePath, name, [], skipped);
+  }
+  // A direct file path is an explicit include; directory walks skip lockfiles by default.
+  if (options.includeLockfiles === false && LOCKFILE_BASENAMES.has(name)) {
+    skipped.push({ path: name, reason: "large lockfile skipped", sensitive: false });
+    return buildCollection(absolutePath, name, [], skipped);
+  }
+  const stat = await lstat(absolutePath);
+  if (stat.size > options.maxBytes) {
+    skipped.push({ path: name, reason: "file exceeds per-file byte limit", sensitive: false });
+    return buildCollection(absolutePath, name, [], skipped);
+  }
+  const buffer = await readFile(absolutePath);
+  if (isLikelyBinary(buffer)) {
+    skipped.push({ path: name, reason: "binary file skipped", sensitive: false });
+    return buildCollection(absolutePath, name, [], skipped);
+  }
+  const content = buffer.toString("utf8");
+  if (!content) {
+    skipped.push({ path: name, reason: "empty file skipped", sensitive: false });
+    return buildCollection(absolutePath, name, [], skipped);
+  }
+  if (content.length > MAX_BACKEND_FILE_CHARS) {
+    skipped.push({
+      path: name,
+      reason: `file exceeds backend max content length (${MAX_BACKEND_FILE_CHARS})`,
+      sensitive: false,
+    });
+    return buildCollection(absolutePath, name, [], skipped);
+  }
+  return buildCollection(
+    absolutePath,
+    name,
+    [
+      {
+        path: name,
+        absolutePath,
+        language: languageFor(name),
+        content,
+        bytes: buffer.byteLength,
+      },
+    ],
+    skipped,
+  );
 }
 
 function normalizeIgnorePattern(pattern: string): IgnoreRule | null {
@@ -221,7 +332,7 @@ export async function collectFiles(options: CollectOptions): Promise<CollectionR
   const root = resolve(options.path);
   const rootStat = await lstat(root);
   if (!rootStat.isDirectory()) {
-    throw new Error(`Scan path is not a directory: ${options.path}`);
+    return collectSingleFile(root, options);
   }
 
   const files: CollectedFile[] = [];
@@ -234,15 +345,16 @@ export async function collectFiles(options: CollectOptions): Promise<CollectionR
     }),
   ];
   let totalBytes = 0;
+  const maxTotalBytes = options.maxTotalBytes ?? options.maxBytes * options.maxFiles;
 
   async function walk(dir: string): Promise<void> {
-    if (files.length >= options.maxFiles || totalBytes >= options.maxBytes) return;
+    if (files.length >= options.maxFiles || totalBytes >= maxTotalBytes) return;
 
     const entries = await readdir(dir, { withFileTypes: true });
     entries.sort((a, b) => a.name.localeCompare(b.name));
 
     for (const entry of entries) {
-      if (files.length >= options.maxFiles || totalBytes >= options.maxBytes) return;
+      if (files.length >= options.maxFiles || totalBytes >= maxTotalBytes) return;
 
       const absolutePath = join(dir, entry.name);
       const relPath = toPosix(relative(root, absolutePath));
@@ -262,13 +374,17 @@ export async function collectFiles(options: CollectOptions): Promise<CollectionR
         continue;
       }
       if (!entry.isFile() || !shouldInclude(relPath)) continue;
+      if (!options.includeLockfiles && LOCKFILE_BASENAMES.has(entry.name)) {
+        skipped.push({ path: relPath, reason: "large lockfile skipped", sensitive: false });
+        continue;
+      }
 
       const stat = await lstat(absolutePath);
       if (stat.size > options.maxBytes) {
-        skipped.push({ path: relPath, reason: "file exceeds max byte limit", sensitive: false });
+        skipped.push({ path: relPath, reason: "file exceeds per-file byte limit", sensitive: false });
         continue;
       }
-      if (totalBytes + stat.size > options.maxBytes) {
+      if (totalBytes + stat.size > maxTotalBytes) {
         skipped.push({ path: relPath, reason: "scan byte budget reached", sensitive: false });
         continue;
       }

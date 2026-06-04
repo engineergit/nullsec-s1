@@ -1,29 +1,45 @@
 import { runDoctor } from "./doctor.js";
 import { runServe } from "./serve.js";
 import { defaultPython, DEFAULT_ADAPTER_PATH, DEFAULT_BASE_MODEL } from "./runtime.js";
-import { errorExitCode, parseSeverity, runScan } from "./scan.js";
-import type { CliOptions, CommandOptions, ServeOptions } from "./types.js";
+import {
+  DEFAULT_API_URL,
+  DEFAULT_MAX_BYTES,
+  DEFAULT_MAX_FILES,
+  LOCAL_API_URL,
+  errorExitCode,
+  parseSeverity,
+  runHealth,
+  runScan,
+  runScanMcp,
+} from "./scan.js";
+import type { CliOptions, CommandOptions, HealthOptions, ScanMcpOptions, ServeOptions } from "./types.js";
 
 function usage(): string {
   return `Usage: npx @s1-clm/s1 <command> [options]
 
 Commands:
-  scan                 Scan a project via hosted API, local backend, or heuristics
+  scan [path]          Scan a file, project, or stdin via the Nullsec S1 API
+  health               Check the public Nullsec-S1 API health endpoint
+  scan-mcp <path>      Scan an MCP config JSON file
   serve                Start the bundled Nullsec S1 FastAPI backend
   doctor               Check local backend/model dependencies
 
 Options:
-  --path <path>          Project path to scan (default: current directory)
-  --api-url <url>        Nullsec S1 backend URL (default: NULLSEC_API_URL or https://s1.trynullsec.com/api)
+  --path <path>          Scan path (legacy alias; default: current directory)
+  --stdin                Read raw code/text from stdin
+  --api <url>            Nullsec-S1 API base URL (default: https://s1.trynullsec.com/api)
+  --api-url <url>        Alias for --api
   --json                 Print JSON report
   --output <file>        Write report to file
-  --fail-on <severity>   Exit 1 on severity threshold: critical, high, medium, low, info
+  --fail-on <severity>   Exit 1 on severity threshold (default: high)
   --no-network           Run local heuristic scan only
-  --local-model          Scan through http://localhost:8000 unless --api-url is set
+  --local                Use local heuristic mode
+  --local-model          Use http://localhost:8000 API for model-backed local scans
   --exclude <path>       Exclude a path or pattern; can be repeated
+  --include-lockfiles    Include lockfiles during directory scans
   --show-all             Print every finding instead of the first 20
   --max-files <n>        Max files to collect (default: 200)
-  --max-bytes <n>        Max total bytes to collect (default: 1000000)
+  --max-bytes <n>        Max bytes per file/stdin input (default: 256000)
   --python <bin>         Python binary for serve/doctor (default: python3)
   --host <host>          Backend host for serve (default: 127.0.0.1)
   --port <port>          Backend port for serve (default: 8000)
@@ -39,7 +55,7 @@ export function parseArgs(argv: string[]): CommandOptions {
     process.stdout.write(`${usage()}\n`);
     process.exit(0);
   }
-  if (!["scan", "serve", "doctor"].includes(command)) {
+  if (!["scan", "health", "scan-mcp", "serve", "doctor"].includes(command)) {
     throw new Error(`Unknown command: ${command}`);
   }
 
@@ -101,17 +117,82 @@ export function parseArgs(argv: string[]): CommandOptions {
     return options;
   }
 
+  const baseScanOptions = {
+    apiUrl: process.env.NULLSEC_S1_API_URL || process.env.NULLSEC_API_URL || DEFAULT_API_URL,
+    json: false,
+    showAll: false,
+  };
+
+  if (command === "health") {
+    const options: HealthOptions = {
+      command: "health",
+      apiUrl: baseScanOptions.apiUrl,
+    };
+    for (let index = 0; index < rest.length; index += 1) {
+      const arg = rest[index];
+      const next = () => {
+        const value = rest[index + 1];
+        if (!value || value.startsWith("--")) throw new Error(`Missing value for ${arg}`);
+        index += 1;
+        return value;
+      };
+      if (arg === "--api" || arg === "--api-url") options.apiUrl = next();
+      else if (arg === "--help" || arg === "-h") {
+        process.stdout.write(`${usage()}\n`);
+        process.exit(0);
+      } else {
+        throw new Error(`Unknown option for health: ${arg}`);
+      }
+    }
+    return options;
+  }
+
+  if (command === "scan-mcp") {
+    const options: ScanMcpOptions = {
+      command: "scan-mcp",
+      path: "",
+      ...baseScanOptions,
+    };
+    for (let index = 0; index < rest.length; index += 1) {
+      const arg = rest[index];
+      const next = () => {
+        const value = rest[index + 1];
+        if (!value || value.startsWith("--")) throw new Error(`Missing value for ${arg}`);
+        index += 1;
+        return value;
+      };
+      if (arg === "--api" || arg === "--api-url") options.apiUrl = next();
+      else if (arg === "--json") options.json = true;
+      else if (arg === "--output") options.output = next();
+      else if (arg === "--fail-on") options.failOn = parseSeverity(next());
+      else if (arg === "--show-all") options.showAll = true;
+      else if (arg === "--help" || arg === "-h") {
+        process.stdout.write(`${usage()}\n`);
+        process.exit(0);
+      } else if (arg.startsWith("--")) {
+        throw new Error(`Unknown option for scan-mcp: ${arg}`);
+      } else if (!options.path) {
+        options.path = arg;
+      } else {
+        throw new Error(`Unexpected positional argument for scan-mcp: ${arg}`);
+      }
+    }
+    if (!options.path) throw new Error("scan-mcp requires a config path.");
+    return options;
+  }
+
   const options: CliOptions = {
     command: "scan",
-    path: process.cwd(),
-    apiUrl: process.env.NULLSEC_API_URL || "https://s1.trynullsec.com/api",
-    json: false,
+    path: undefined,
+    ...baseScanOptions,
     noNetwork: false,
-    maxFiles: 200,
-    maxBytes: 1_000_000,
+    useAnalyzeEndpoint: false,
+    maxFiles: DEFAULT_MAX_FILES,
+    maxBytes: DEFAULT_MAX_BYTES,
     excludes: [],
-    showAll: false,
     localModel: false,
+    stdin: false,
+    includeLockfiles: false,
   };
 
   for (let index = 0; index < rest.length; index += 1) {
@@ -124,12 +205,19 @@ export function parseArgs(argv: string[]): CommandOptions {
     };
 
     if (arg === "--path") options.path = next();
-    else if (arg === "--api-url") options.apiUrl = next();
+    else if (arg === "--api" || arg === "--api-url") options.apiUrl = next();
     else if (arg === "--json") options.json = true;
     else if (arg === "--output") options.output = next();
     else if (arg === "--fail-on") options.failOn = parseSeverity(next());
-    else if (arg === "--no-network") options.noNetwork = true;
-    else if (arg === "--local-model") options.localModel = true;
+    else if (arg === "--no-network" || arg === "--local") options.noNetwork = true;
+    else if (arg === "--local-model") {
+      options.localModel = true;
+      options.apiUrl = LOCAL_API_URL;
+      options.useAnalyzeEndpoint = true;
+    }
+    else if (arg === "--analyze-endpoint") options.useAnalyzeEndpoint = true;
+    else if (arg === "--stdin") options.stdin = true;
+    else if (arg === "--include-lockfiles") options.includeLockfiles = true;
     else if (arg === "--exclude") options.excludes.push(next());
     else if (arg === "--show-all") options.showAll = true;
     else if (arg === "--max-files") options.maxFiles = Number.parseInt(next(), 10);
@@ -137,10 +225,16 @@ export function parseArgs(argv: string[]): CommandOptions {
     else if (arg === "--help" || arg === "-h") {
       process.stdout.write(`${usage()}\n`);
       process.exit(0);
-    } else {
+    } else if (arg.startsWith("--")) {
       throw new Error(`Unknown option: ${arg}`);
+    } else if (!options.path) {
+      options.path = arg;
+    } else {
+      throw new Error(`Unexpected positional argument: ${arg}`);
     }
   }
+  if (!options.path && !options.stdin) options.path = process.cwd();
+  if (options.path && options.stdin) throw new Error("Use either a path or --stdin, not both.");
 
   if (!Number.isInteger(options.maxFiles) || options.maxFiles < 1) {
     throw new Error("--max-files must be a positive integer.");
@@ -158,6 +252,10 @@ export async function main() {
     const code =
       options.command === "scan"
         ? await runScan(options)
+        : options.command === "health"
+          ? await runHealth(options)
+        : options.command === "scan-mcp"
+          ? await runScanMcp(options)
         : options.command === "serve"
           ? await runServe(options)
           : await runDoctor(options);

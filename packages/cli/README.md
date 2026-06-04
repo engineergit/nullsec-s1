@@ -1,9 +1,17 @@
 # Nullsec S1 CLI
 
-Run a Nullsec S1 security scan from any local project:
+Nullsec S1 CLI and MCP call your configured Nullsec S1 API to review
+AI-generated apps, agent tools, and MCP configs.
+
+Run a scan from any local project:
 
 ```bash
 npx @s1-clm/s1 scan
+npx @s1-clm/s1 scan .
+npx @s1-clm/s1 scan ./src/app.ts
+echo 'app.get("/admin", (req,res)=>res.send("ok"))' | npx @s1-clm/s1 scan --stdin
+npx @s1-clm/s1 health
+npx @s1-clm/s1 scan-mcp ./examples/example-mcp-config.json
 ```
 
 Default backend:
@@ -12,19 +20,82 @@ Default backend:
 https://s1.trynullsec.com/api
 ```
 
-Use a local backend:
+Override the API URL:
 
 ```bash
-NULLSEC_API_URL=http://localhost:8000 npx @s1-clm/s1 scan
+NULLSEC_S1_API_URL=http://localhost:8000 npx @s1-clm/s1 scan .
+npx @s1-clm/s1 scan . --api http://localhost:8000
+npx @s1-clm/s1 scan --path ./apps/web
+npx @s1-clm/s1 scan --json
 ```
 
 Run without network access:
 
 ```bash
 npx @s1-clm/s1 scan --no-network
+npx @s1-clm/s1 scan --local
 ```
 
 No-network mode is heuristic-only. It does not use the Nullsec S1 model.
+
+Exit codes:
+
+- `0`: no high or critical issues
+- `1`: high or critical issues found
+- `2`: runtime, config, collection, or API error
+
+## MCP Server
+
+Start the stdio MCP server:
+
+```bash
+npx -p @s1-clm/s1 nullsec-s1-mcp
+```
+
+The published binary name is:
+
+```text
+nullsec-s1-mcp
+```
+
+It exposes:
+
+- `nullsec_s1_scan_text`
+- `nullsec_s1_scan_file`
+- `nullsec_s1_scan_project`
+- `nullsec_s1_scan_mcp_config`
+
+The MCP server uses `NULLSEC_S1_API_URL` or defaults to `https://s1.trynullsec.com/api`.
+
+Cursor MCP config:
+
+```json
+{
+  "mcpServers": {
+    "nullsec-s1": {
+      "command": "nullsec-s1-mcp",
+      "env": {
+        "NULLSEC_S1_API_URL": "http://localhost:8000"
+      }
+    }
+  }
+}
+```
+
+Claude Desktop MCP config:
+
+```json
+{
+  "mcpServers": {
+    "nullsec-s1": {
+      "command": "nullsec-s1-mcp",
+      "env": {
+        "NULLSEC_S1_API_URL": "http://localhost:8000"
+      }
+    }
+  }
+}
+```
 
 ## Local Model Backend
 
@@ -81,4 +152,6 @@ binary, archive, model-weight, real `.env`, and private-key files by default.
 
 Examples include `node_modules`, `.git`, `.next`, `.venv`, `site-packages`,
 `__pycache__`, `.pytest_cache`, `dist`, `build`, real `.env` files,
-`*.pem`, `*.safetensors`, archives, images, and videos.
+`*.pem`, `*.safetensors`, archives, images, videos, and large lockfiles during
+directory scans. Use `--include-lockfiles` to include lockfiles in a directory
+scan, or pass a lockfile path directly.

@@ -163,10 +163,18 @@ device, dtype, and eager-loading mode.
 
 ## Nullsec S1 CLI
 
-Run a local project scan from any repo:
+Nullsec S1 CLI and MCP call your configured Nullsec S1 API to review
+AI-generated apps, agent tools, and MCP configs.
+
+Run scans from any repo:
 
 ```bash
 npx @s1-clm/s1 scan
+npx @s1-clm/s1 scan .
+npx @s1-clm/s1 scan ./examples/unsafe-admin-route.js
+echo 'app.get("/admin", (req,res)=>res.send("ok"))' | npx @s1-clm/s1 scan --stdin
+npx @s1-clm/s1 health
+npx @s1-clm/s1 scan-mcp ./examples/example-mcp-config.json
 ```
 
 Default backend:
@@ -175,10 +183,13 @@ Default backend:
 https://s1.trynullsec.com/api
 ```
 
-Use a local backend:
+Override the API URL:
 
 ```bash
-NULLSEC_API_URL=http://localhost:8000 npx @s1-clm/s1 scan
+NULLSEC_S1_API_URL=http://localhost:8000 npx @s1-clm/s1 scan .
+npx @s1-clm/s1 scan . --api http://localhost:8000
+npx @s1-clm/s1 scan --path ./apps/web
+npx @s1-clm/s1 scan --json
 ```
 
 Write a JSON report:
@@ -197,6 +208,7 @@ Run without network access:
 
 ```bash
 npx @s1-clm/s1 scan --no-network
+npx @s1-clm/s1 scan --local
 ```
 
 Exclude a path for one scan:
@@ -222,8 +234,57 @@ taxonomy/
 ```
 
 By default, the CLI skips common dependency, cache, build, virtualenv, private
-key, real `.env`, binary, archive, and model-weight files. Text output shows the
-first 20 findings by default; use `--show-all` to print every finding.
+key, real `.env`, binary, archive, model-weight files, and large lockfiles during
+directory scans. Use `--include-lockfiles` to include lockfiles in a directory
+scan, or pass a lockfile path directly. Text output shows the first 20 findings
+by default; use `--show-all` to print every finding.
+
+## MCP Usage
+
+Start the stdio MCP server:
+
+```bash
+npx -p @s1-clm/s1 nullsec-s1-mcp
+```
+
+It exposes:
+
+- `nullsec_s1_scan_text`
+- `nullsec_s1_scan_file`
+- `nullsec_s1_scan_project`
+- `nullsec_s1_scan_mcp_config`
+
+The MCP server uses `NULLSEC_S1_API_URL` or defaults to `https://s1.trynullsec.com/api`.
+
+## Cursor MCP Config
+
+```json
+{
+  "mcpServers": {
+    "nullsec-s1": {
+      "command": "nullsec-s1-mcp",
+      "env": {
+        "NULLSEC_S1_API_URL": "http://localhost:8000"
+      }
+    }
+  }
+}
+```
+
+Claude Desktop uses the same MCP server shape:
+
+```json
+{
+  "mcpServers": {
+    "nullsec-s1": {
+      "command": "nullsec-s1-mcp",
+      "env": {
+        "NULLSEC_S1_API_URL": "http://localhost:8000"
+      }
+    }
+  }
+}
+```
 
 Run the local backend bundled with the npm package:
 

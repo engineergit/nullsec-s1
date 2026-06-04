@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { collectFiles } from "../src/collect-files.js";
+import { collectFiles, collectTextInput } from "../src/collect-files.js";
 import { runHeuristicScan } from "../src/heuristics.js";
 
 async function fixture() {
@@ -133,6 +133,44 @@ test("collectFiles supports explicit excludes", async () => {
 
     assert.deepEqual(result.files.map((file) => file.path), ["src/app.ts"]);
     assert.ok(result.skipped.some((skip) => skip.path === "corpus"));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("collectFiles supports a single file path and markdown", async () => {
+  const root = await mkdtemp(join(tmpdir(), "nullsec-s1-"));
+  try {
+    const file = join(root, "README.md");
+    await writeFile(file, "# docs\n\napp.get('/admin', handler)\n");
+    const result = await collectFiles({ path: file, maxFiles: 200, maxBytes: 256_000 });
+    assert.equal(result.files.length, 1);
+    assert.equal(result.files[0].path, "README.md");
+    assert.equal(result.files[0].language, "markdown");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("collectTextInput supports stdin-style scans", () => {
+  const result = collectTextInput({
+    content: "app.get('/admin', handler)\n",
+    path: "stdin.txt",
+    language: "javascript",
+    maxBytes: 256_000,
+  });
+  assert.equal(result.files.length, 1);
+  assert.equal(result.files[0].path, "stdin.txt");
+  assert.equal(result.files[0].language, "javascript");
+});
+
+test("collectFiles skips lockfiles by default", async () => {
+  const root = await mkdtemp(join(tmpdir(), "nullsec-s1-"));
+  try {
+    await writeFile(join(root, "package-lock.json"), "{}\n");
+    const result = await collectFiles({ path: root, maxFiles: 200, maxBytes: 256_000 });
+    assert.equal(result.files.length, 0);
+    assert.ok(result.skipped.some((skip) => skip.path === "package-lock.json" && skip.reason === "large lockfile skipped"));
   } finally {
     await rm(root, { recursive: true, force: true });
   }

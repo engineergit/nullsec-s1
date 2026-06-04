@@ -23,8 +23,22 @@ function statusFor(score: number): string {
   return "NO HIGH-RISK FINDINGS";
 }
 
-function count(findings: Finding[], severity: Severity): number {
+function cweSuffix(finding: Finding): string {
+  return finding.cwe ? ` ${finding.cwe}` : "";
+}
+
+export function count(findings: Finding[], severity: Severity): number {
   return findings.filter((finding) => finding.severity === severity).length;
+}
+
+export function severityCounts(findings: Finding[]): Record<Severity, number> {
+  return {
+    critical: count(findings, "critical"),
+    high: count(findings, "high"),
+    medium: count(findings, "medium"),
+    low: count(findings, "low"),
+    info: count(findings, "info"),
+  };
 }
 
 function uniqueGeneratedDirs(collection: CollectionResult): string[] {
@@ -41,20 +55,24 @@ export function formatTextReport(
   options: { showAll?: boolean } = {},
 ): string {
   const lines: string[] = [];
-  lines.push("Nullsec S1 Security Scan", "");
+  lines.push("Nullsec-S1 Security Scan");
   if (report.local_heuristic) {
-    lines.push("Mode: Local heuristic scan, not Nullsec S1 model scan", "");
+    lines.push("Mode: Local heuristic scan, not Nullsec-S1 API scan");
   }
   lines.push(`Project: ${collection.projectName}`);
   lines.push(`Files scanned: ${collection.files.length}`);
-  lines.push(`Backend: ${report.local_heuristic ? "not used" : apiUrl}`);
-  lines.push(`Model: ${report.local_heuristic ? "Local heuristics" : "Nullsec S1"}`, "");
-  lines.push(`Risk Score: ${report.risk_score} / 100`);
+  lines.push(`Risk score: ${report.risk_score}`);
+  if (!report.local_heuristic) lines.push(`API: ${apiUrl}`);
+  if (typeof report.production_ready === "boolean") {
+    lines.push(`Production ready: ${report.production_ready ? "yes" : "no"}`);
+  }
   lines.push(`Status: ${statusFor(report.risk_score)}`, "");
-  lines.push(`Critical: ${count(report.findings, "critical")}`);
-  lines.push(`High: ${count(report.findings, "high")}`);
-  lines.push(`Medium: ${count(report.findings, "medium")}`);
-  lines.push(`Low: ${count(report.findings, "low")}`, "");
+  const counts = report.severity_counts || severityCounts(report.findings);
+  lines.push(`Critical: ${counts.critical}`);
+  lines.push(`High: ${counts.high}`);
+  lines.push(`Medium: ${counts.medium}`);
+  lines.push(`Low: ${counts.low}`);
+  lines.push(`Info: ${counts.info}`, "");
 
   const sensitiveSkips = collection.skipped.filter((skip) => skip.sensitive);
   if (sensitiveSkips.length) {
@@ -66,18 +84,20 @@ export function formatTextReport(
   }
 
   if (!report.findings.length) {
-    lines.push("Findings:", "", "No findings returned.");
+    lines.push("No critical issues found.");
     return lines.join("\n");
   }
 
-  lines.push("Findings:", "");
   const findingsToShow = options.showAll ? report.findings : report.findings.slice(0, 20);
   for (const finding of findingsToShow) {
     const location = finding.line ? `${finding.file}:${finding.line}` : finding.file;
-    lines.push(`[${finding.severity.toUpperCase()}] ${finding.title}`);
-    lines.push(`File: ${location}`);
-    lines.push(`Issue: ${finding.description}`);
-    lines.push(`Fix: ${finding.recommendation}`, "");
+    lines.push(`${finding.severity.toUpperCase()}  ${finding.title}  ${location}`);
+    if (finding.evidence) lines.push(`Evidence: ${finding.evidence}`);
+    lines.push(`${finding.description}${cweSuffix(finding)}`);
+    if (finding.recommendation) {
+      lines.push("", "Recommendation:", finding.recommendation);
+    }
+    lines.push("");
   }
   if (!options.showAll && report.findings.length > findingsToShow.length) {
     lines.push(
@@ -100,6 +120,10 @@ export async function emitReport(params: {
     ? JSON.stringify(
         {
           ...params.report,
+          severity_counts: params.report.severity_counts || severityCounts(params.report.findings),
+          recommendations: params.report.recommendations || [
+            ...new Set(params.report.findings.map((finding) => finding.recommendation).filter(Boolean)),
+          ],
           scanned: {
             project_name: params.collection.projectName,
             total_files: params.collection.files.length,

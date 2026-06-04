@@ -21,7 +21,7 @@ test("scan --no-network emits report header", async () => {
       encoding: "utf8",
     });
     assert.equal(result.status, 0);
-    assert.match(result.stdout, /Nullsec S1 Security Scan/);
+    assert.match(result.stdout, /Nullsec-S1 Security Scan/);
     assert.match(result.stdout, /Mode: Local heuristic scan/);
     assert.match(result.stdout, /Files scanned:/);
   } finally {
@@ -36,20 +36,20 @@ test("scan --show-all prints findings for unsafe fixture", async () => {
     const result = spawnSync("node", [cliPath, "scan", "--path", root, "--no-network", "--show-all"], {
       encoding: "utf8",
     });
-    assert.equal(result.status, 0);
+    assert.equal(result.status, 1);
     assert.match(result.stdout, /Dangerous eval usage/);
   } finally {
     await rm(root, { recursive: true, force: true });
   }
 });
 
-test("scan backend unavailable exits with code 3 and error", async () => {
+test("scan backend unavailable exits with code 2 and error", async () => {
   const root = await fixture();
   try {
     const result = spawnSync("node", [cliPath, "scan", "--path", root, "--api-url", "http://127.0.0.1:9"], {
       encoding: "utf8",
     });
-    assert.equal(result.status, 3);
+    assert.equal(result.status, 2);
     assert.match(result.stderr + result.stdout, /backend unavailable|connect|fetch failed|ECONNREFUSED/i);
   } finally {
     await rm(root, { recursive: true, force: true });
