@@ -275,6 +275,11 @@ def _dedupe(findings: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
+def deterministic_scan_findings(file_content: str, filename: str = "input") -> list[dict[str, Any]]:
+    """Return deterministic findings without requiring a model verdict."""
+    return _dedupe(_rule_findings(file_content, filename))
+
+
 def _recalculate_risk(payload: dict[str, Any]) -> None:
     findings = payload.get("findings") or []
     if not findings:

@@ -108,6 +108,26 @@ test("postScan includes backend validation details on 422", async () => {
   }
 });
 
+test("postScan reports status and body preview for non-JSON responses", async () => {
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new Response("<html><body>bad gateway from proxy</body></html>", {
+      status: 502,
+      headers: { "content-type": "text/html" },
+    });
+  try {
+    await assert.rejects(
+      () => postScan("http://localhost:8000", buildPayload(collection())),
+      (error: unknown) =>
+        error instanceof BackendUnavailableError &&
+        /HTTP 502/.test(error.message) &&
+        /bad gateway from proxy/.test(error.message),
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("postScan sends files with path/language/content fields", async () => {
   const originalFetch = globalThis.fetch;
   let sentBody = "";

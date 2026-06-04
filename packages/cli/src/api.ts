@@ -44,12 +44,15 @@ async function postJson<TResponse>(apiUrl: string, endpoint: string, payload: un
       signal: controller.signal,
     });
 
+    const responseText = await response.text();
     const contentType = response.headers.get("content-type") ?? "";
     if (!contentType.includes("application/json")) {
-      throw new BackendUnavailableError("Nullsec S1 backend returned a non-JSON response.");
+      throw new BackendUnavailableError(
+        `Nullsec S1 backend returned HTTP ${response.status} with a non-JSON response: ${responseText.slice(0, 300)}`,
+      );
     }
 
-    const body = (await response.json()) as TResponse | BackendError;
+    const body = JSON.parse(responseText) as TResponse | BackendError;
     if (!response.ok) {
       const backendError = asBackendError(body);
       const message = backendError.error?.message;

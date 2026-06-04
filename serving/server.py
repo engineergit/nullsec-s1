@@ -25,6 +25,7 @@ import json
 import logging
 import os
 import sys
+import traceback
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -44,7 +45,7 @@ from nullsec.core.version import (
     model_info,
 )
 from nullsec.safety import VerdictParseError
-from nullsec.safety.finding_normalization import normalize_verdict_payload
+from nullsec.safety.finding_normalization import deterministic_scan_findings, normalize_verdict_payload
 
 logging.basicConfig(level=os.environ.get("NULLSEC_LOG_LEVEL", "INFO"))
 LOGGER = logging.getLogger("nullsec.s1")
@@ -280,6 +281,25 @@ def _summary_from_counts(project_name: str, file_count: int, findings: list[dict
     return f"Found {len(findings)} finding(s) in {project_name} across {file_count} files."
 
 
+def _alignment_warning(scan_file: ScanFile) -> dict:
+    return {
+        "severity": "low",
+        "title": "MODEL_ALIGNMENT_WARNING",
+        "file": scan_file.path,
+        "line": 1,
+        "description": (
+            "Nullsec-S1 model output could not be aligned for this file. "
+            "Deterministic scan did not identify a canonical issue."
+        ),
+        "recommendation": "Retry with smaller files or run with --no-network/local heuristic mode.",
+    }
+
+
+def _risk_from_flat_finding(finding: dict) -> int:
+    severity = str(finding.get("severity", "info")).lower()
+    return {"critical": 90, "high": 70, "medium": 40, "low": 20, "info": 0}.get(severity, 0)
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "model": MODEL_NAME, "version": MODEL_VERSION}
@@ -375,17 +395,26 @@ def scan(req: RepoScanRequest) -> dict:
             detail={"message": "Request body failed validation.", "details": validation_errors},
         )
 
-    try:
-        for scan_file in req.files:
+    for scan_file in req.files:
+        try:
             result = pipeline.analyze(scan_file.path, scan_file.content, scan_file.language or "")
             verdict = normalize_verdict_payload(json.loads(pipeline.to_json(result)), scan_file.content, scan_file.path)
             max_risk = max(max_risk, int(verdict.get("risk_score", 0)))
-            for finding in verdict.get("findings", []):
-                findings.append(_finding_from_verdict(finding, scan_file.path))
-    except PipelineLoadError as e:
-        raise _load_error_response(e)
-    except VerdictParseError as e:
-        raise HTTPException(status_code=502, detail=f"Nullsec-1 output could not be aligned: {e}")
+            findings.extend(_finding_from_verdict(finding, scan_file.path) for finding in verdict.get("findings", []))
+        except PipelineLoadError as e:
+            raise _load_error_response(e)
+        except VerdictParseError:
+            LOGGER.exception("Nullsec-S1 /v1/scan output alignment failed for %s", scan_file.path)
+            LOGGER.error("Nullsec-S1 /v1/scan traceback:\n%s", traceback.format_exc())
+            fallback = deterministic_scan_findings(scan_file.content, scan_file.path)
+            if fallback:
+                flat = [_finding_from_verdict(finding, scan_file.path) for finding in fallback]
+                findings.extend(flat)
+                max_risk = max(max_risk, max(_risk_from_flat_finding(finding) for finding in flat))
+            else:
+                warning = _alignment_warning(scan_file)
+                findings.append(warning)
+                max_risk = max(max_risk, _risk_from_flat_finding(warning))
 
     return {
         "summary": _summary_from_counts(req.project_name, len(req.files), findings),

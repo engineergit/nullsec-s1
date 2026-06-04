@@ -6,6 +6,7 @@ import types
 from fastapi.testclient import TestClient
 
 from nullsec.core.engine import NullsecPipeline, PipelineConfig, detect_adapter_source
+from nullsec.safety import VerdictParseError
 from serving import server
 
 
@@ -82,8 +83,22 @@ class FakePipeline:
         }
 
 
+class FailingPipeline(FakePipeline):
+    def analyze(self, filename: str, code: str, lang: str):
+        self.last_request = {"filename": filename, "code": code, "lang": lang}
+        raise VerdictParseError("test alignment failure")
+
+
 def client_with_fake_pipeline():
     fake = FakePipeline()
+    server._pipeline = fake
+    server.PipelineConfig = lambda: type(  # noqa: E731
+        "Config", (), {"adapter_path": "Trynullsec/nullsec-s1"}
+    )()
+    return TestClient(server.app), fake
+
+
+def client_with_pipeline(fake):
     server._pipeline = fake
     server.PipelineConfig = lambda: type(  # noqa: E731
         "Config", (), {"adapter_path": "Trynullsec/nullsec-s1"}
@@ -237,6 +252,59 @@ def test_repo_scan_accepts_minimal_cli_payload():
     assert response.status_code == 200
     assert response.json()["risk_score"] == 70
     assert fake.last_request["lang"] == ""
+
+
+def test_repo_scan_alignment_failure_returns_json_warning():
+    try:
+        client, fake = client_with_pipeline(FailingPipeline())
+        response = client.post(
+            "/v1/scan",
+            json={
+                "project_name": "my-app",
+                "files": [
+                    {
+                        "path": "src/index.ts",
+                        "language": "typescript",
+                        "content": "export const ok = true",
+                    }
+                ],
+            },
+        )
+    finally:
+        server.PipelineConfig = REAL_PIPELINE_CONFIG
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("application/json")
+    payload = response.json()
+    assert payload["risk_score"] == 20
+    assert payload["findings"][0]["title"] == "MODEL_ALIGNMENT_WARNING"
+    assert fake.last_request["filename"] == "src/index.ts"
+
+
+def test_repo_scan_alignment_failure_uses_deterministic_fallback():
+    try:
+        client, _ = client_with_pipeline(FailingPipeline())
+        response = client.post(
+            "/v1/scan",
+            json={
+                "project_name": "my-app",
+                "files": [
+                    {
+                        "path": "src/route.ts",
+                        "language": "typescript",
+                        "content": "eval(req.body.code)",
+                    }
+                ],
+            },
+        )
+    finally:
+        server.PipelineConfig = REAL_PIPELINE_CONFIG
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["risk_score"] == 90
+    assert payload["findings"][0]["title"] == "REMOTE_CODE_EXECUTION"
+    assert payload["findings"][0]["severity"] == "critical"
 
 
 def test_repo_scan_rejects_empty_file_content_with_details():

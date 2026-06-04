@@ -45,3 +45,4 @@ packages/cli/runtime/
 packages/cli/dist/
 packages/cli/dist-test/
 *.tgz
+config.bat
